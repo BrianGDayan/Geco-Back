@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model detalle {
+  id_detalle        Int        @id @default(autoincrement())
+  posicion          String     @db.VarChar(10)
+  tipo              Int
+  medida_diametro   Int
+  longitud_corte    Float      @db.Real
+  cantidad_unitaria Int
+  nro_elementos     Int
+  nro_iguales       Int
+  cantidad_total    Int
+  id_elemento       Int
+  progreso          Int        @default(0)
+  especificacion    String
+  elemento          elemento   @relation(fields: [id_elemento], references: [id_elemento], onDelete: NoAction, onUpdate: NoAction, map: "id_elemento")
+  diametro          diametro   @relation(fields: [medida_diametro], references: [medida_diametro], onDelete: NoAction, onUpdate: NoAction, map: "medida_diametro")
+  detalle_tarea    detalle_tarea[]
+}
+
+model diametro {
+  medida_diametro Int       @id
+  peso_por_metro  Float     @db.Real
+  detalle         detalle[]
+}
+
+model elemento {
+  id_elemento     Int       @id @default(autoincrement())
+  nombre_elemento String    @db.VarChar(50)
+  nro_planilla    String    @db.VarChar(15)
+  progreso        Int       @default(0)
+  detalle         detalle[]
+  planilla        planilla  @relation(fields: [nro_planilla], references: [nro_planilla], onDelete: NoAction, onUpdate: NoAction, map: "nro_planilla")
+}
+
+model planilla {
+  nro_planilla       String     @id @db.VarChar(15)
+  obra               String     @db.VarChar(30)
+  nro_plano          String     @db.VarChar(30)
+  sector             String     @db.VarChar(30)
+  encargado_elaborar String     @db.VarChar(15)
+  encargado_revisar  String     @db.VarChar(15)
+  encargado_aprobar  String?    @db.VarChar(15)
+  fecha              DateTime   @db.Date
+  revision           Int        @default(0)
+  item               String     @db.VarChar(20)
+  progreso           Int        @default(0)
+  id_usuario         Int
+  elemento           elemento[]
+  usuario            usuario    @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
+}
+
+model registro {
+  id_registro            Int      @id @default(autoincrement())
+  id_detalle_tarea       Int
+  fecha                  DateTime @db.Date
+  cantidad               Int
+  horas_trabajador       Float    @db.Real
+  horas_ayudante         Float    @db.Real
+  rendimiento_trabajador Float    @db.Real
+  rendimiento_ayudante   Float    @db.Real
+  id_usuario             Int
+  detalle_tarea          detalle_tarea @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea])
+  usuario                usuario  @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
+}
+
+model tarea {
+  id_tarea     Int        @id
+  nombre_tarea String     @db.VarChar(15)
+  detalle_tarea  detalle_tarea[]
+}
+
+
+model detalle_tarea {
+  id_detalle_tarea Int    @id @default(autoincrement())
+  id_detalle       Int
+  id_tarea         Int
+  cantidad_acumulada Int  @default(0) // Se incrementa con cada registro
+
+  detalle          detalle  @relation(fields: [id_detalle], references: [id_detalle])
+  tarea            tarea    @relation(fields: [id_tarea], references: [id_tarea])
+
+  registro         registro[]
+}
+
+model usuario {
+  id_usuario Int        @id @default(autoincrement())
+  clave      String     @db.VarChar(10)
+  rol        String     @db.VarChar(12)
+  planilla   planilla[]
+  registro   registro[]
+}

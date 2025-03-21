@@ -1,35 +1,42 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, ValidationPipe } from "@nestjs/common";
 import { CreatePlanillaDto } from "./dto/create-planilla.dto";
 import { UpdatePlanillaDto } from "./dto/update-planilla.dto";
 import { PlanillasService } from "./planillas.service";
 
-@Controller({})
+@Controller('planillas')
 export class PlanillasController { 
  
     constructor(private readonly planillasService: PlanillasService) {}
 
-    @Get()
-    getPlanillas(@Query('obra') obra?: string) {
-        return this.planillasService.getPlanillas(rol);
+    // Endpoint para obtener una planilla por el nro de planilla
+    @Get(':nroPlanilla')
+    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('tareaId', new ParseIntPipe()) tareaId: number) {
+        if (![1, 2, 3].includes(tareaId)) {
+            throw new BadRequestException('Tarea inválida');
+        }
+        return this.planillasService.getPlanillaByNro(nroPlanilla, tareaId);
+    }
+     
+    // Endpoint para obtener planillas completadas (progreso = 100)
+    @Get('completadas')
+    async getPlanillasCompletadas() {
+        return this.planillasService.getPlanillasByProgreso(100);
+    }
+ 
+    // Endpoint para obtener planillas en curso (progreso < 100)
+    @Get('en-curso')
+    async getPlanillasEnCurso() {
+        return this.planillasService.getPlanillasByProgresoLessThan(100);
     }
 
-    @Get(':id')
-    getPlanillasById(@Param('id', ParseIntPipe) id: number) {
-        return this.planillasService.getPlanillasById(id);
-    } 
+    @Get('rendimiento-por-obra/:obra')
+    async getRendimientoPorObra(@Param('obra') obra: string) {
+        return this.planillasService.calcularRendimientoPromedioPorObra(obra);
+    }
 
     @Post()
-    createPlanilla(@Body(ValidationPipe) createPlanillaDto: CreatePlanillaDto) {
-        return this.planillasService.createPlanilla(createPlanillaDto);
+    async createPlanilla(@Body(ValidationPipe) createPlanillaDto: CreatePlanillaDto) {
+      
     }
 
-    @Patch(':id')
-    updatePlanilla(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) updatePlanillaDto: UpdatePlanillaDto) {
-        return this.planillasService.updatePlanilla(id, updatePlanillaDto);
-    }
-
-    @Delete(':id')
-    deletePlanilla(@Param('id', ParseIntPipe) id: number) {
-        return this.planillasService.deletePlanilla(id);
-    }
 }

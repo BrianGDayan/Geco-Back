@@ -20,7 +20,7 @@ model detalle {
   id_elemento       Int
   progreso          Int        @default(0)
   especificacion    String
-  elemento          elemento   @relation(fields: [id_elemento], references: [id_elemento], onDelete: NoAction, onUpdate: NoAction, map: "id_elemento")
+  elemento          elemento   @relation(fields: [id_elemento], references: [id_elemento], onDelete: Cascade, onUpdate: NoAction, map: "id_elemento")
   diametro          diametro   @relation(fields: [medida_diametro], references: [medida_diametro], onDelete: NoAction, onUpdate: NoAction, map: "medida_diametro")
   detalle_tarea    detalle_tarea[]
 }
@@ -37,7 +37,7 @@ model elemento {
   nro_planilla    String    @db.VarChar(15)
   progreso        Int       @default(0)
   detalle         detalle[]
-  planilla        planilla  @relation(fields: [nro_planilla], references: [nro_planilla], onDelete: NoAction, onUpdate: NoAction, map: "nro_planilla")
+  planilla        planilla  @relation(fields: [nro_planilla], references: [nro_planilla], onDelete: Cascade, onUpdate: NoAction, map: "nro_planilla")
 }
 
 model planilla {
@@ -53,8 +53,21 @@ model planilla {
   item               String     @db.VarChar(20)
   progreso           Int        @default(0)
   id_usuario         Int
+  rendimiento_global_corte Float @db.Real @default(0)
+  rendimiento_global_doblado Float @db.Real @default(0)
+  rendimiento_global_empaquetado Float @db.Real @default(0)
   elemento           elemento[]
   usuario            usuario    @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
+}
+
+model trabajador {
+  id_trabajador Int      @id @default(autoincrement())
+  nombre        String   @db.VarChar(20)
+  rendimiento_corte Float @db.Real
+  rendimiento_doblado Float @db.Real
+  rendimiento_empaquetado Float @db.Real
+  registros_principales  registro[] @relation("Registros_principales")
+  registros_ayudante     registro[] @relation("Registros_ayudante")
 }
 
 model registro {
@@ -67,8 +80,12 @@ model registro {
   rendimiento_trabajador Float    @db.Real
   rendimiento_ayudante   Float    @db.Real
   id_usuario             Int
-  detalle_tarea          detalle_tarea @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea])
+  id_trabajador          Int
+  id_ayudante            Int?
+  detalle_tarea          detalle_tarea @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle_tarea")
   usuario                usuario  @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
+  trabajador    trabajador  @relation("Registros_principales", fields: [id_trabajador], references: [id_trabajador])
+  ayudante      trabajador? @relation("Registros_ayudante", fields: [id_ayudante], references: [id_trabajador])
 }
 
 model tarea {
@@ -84,10 +101,11 @@ model detalle_tarea {
   id_tarea         Int
   cantidad_acumulada Int  @default(0) // Se incrementa con cada registro
 
-  detalle          detalle  @relation(fields: [id_detalle], references: [id_detalle])
+  detalle          detalle  @relation(fields: [id_detalle], references: [id_detalle], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle")
   tarea            tarea    @relation(fields: [id_tarea], references: [id_tarea])
 
   registro         registro[]
+  @@index([id_tarea])
 }
 
 model usuario {

@@ -66,6 +66,7 @@ model trabajador {
   rendimiento_corte Float @db.Real
   rendimiento_doblado Float @db.Real
   rendimiento_empaquetado Float @db.Real
+  activo         Boolean  @default(true)
   registros_principales  registro[] @relation("Registros_principales")
   registros_ayudante     registro[] @relation("Registros_ayudante")
 }
@@ -99,7 +100,8 @@ model detalle_tarea {
   id_detalle_tarea Int    @id @default(autoincrement())
   id_detalle       Int
   id_tarea         Int
-  cantidad_acumulada Int  @default(0) // Se incrementa con cada registro
+  cantidad_acumulada Int  @default(0)
+  completado       Boolean @default(false)
 
   detalle          detalle  @relation(fields: [id_detalle], references: [id_detalle], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle")
   tarea            tarea    @relation(fields: [id_tarea], references: [id_tarea])

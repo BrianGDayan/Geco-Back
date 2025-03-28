@@ -1,9 +1,14 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, Res, UseGuards, HttpStatus, ValidationPipe, UnauthorizedException } from "@nestjs/common";
+import { Request, Response } from "express";
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreatePlanillaDto } from "./dto/create-planilla.dto";
-import { UpdatePlanillaDto } from "./dto/update-planilla.dto";
 import { PlanillasService } from "./planillas.service";
+import { UpdateDetalleDto } from "./dto/update-detalle.dto";
+import { UserPayload } from "src/auth/type/auth.types";
+
 
 @Controller('planillas')
+@UseGuards(JwtAuthGuard)
 export class PlanillasController { 
  
     constructor(private readonly planillasService: PlanillasService) {}
@@ -34,9 +39,23 @@ export class PlanillasController {
         return this.planillasService.calcularRendimientoPromedioPorObra(obra);
     }
 
+
     @Post()
-    async createPlanilla(@Body(ValidationPipe) createPlanillaDto: CreatePlanillaDto) {
-      
+    async createPlanilla(@Body(ValidationPipe) createPlanillaDto: CreatePlanillaDto, @Req() req: Request, @Res() res: Response) {
+
+        if (!req.user) {
+            throw new UnauthorizedException('Usuario no autenticado');
+        }
+        
+        const idUsuario = (req.user as any).id_usuario;
+        const planilla = await this.planillasService.createPlanilla(createPlanillaDto, idUsuario);
+        return res.status(HttpStatus.CREATED).json(planilla);
+    }
+
+    @Patch('detalles/:id')
+    @UseGuards(JwtAuthGuard)
+    async updateDetalle(@Param('id', ParseIntPipe) id: number, @Body() updateDetalleDto: UpdateDetalleDto, @Req() req: Request & { user: UserPayload }) {
+        return this.planillasService.updateDetalle(id, updateDetalleDto);
     }
 
 }

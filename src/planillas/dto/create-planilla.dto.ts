@@ -1,4 +1,52 @@
-import { IsDate, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { Type } from 'class-transformer';
+import { IsArray, IsDate, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+
+export class DetalleDto {
+    @IsString()
+    @IsNotEmpty({ message: 'La especificación es requerida' })
+    especificacion: string;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'La posición es requerida' })
+    posicion: number;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'El tipo es requerido' })
+    tipo: number;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'El diámetro es requerido' })
+    medidaDiametro: number;
+
+    @IsNumber()
+    @IsNotEmpty({ message: 'La longitud de corte es requerida' })
+    longitudCorte: number;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'La cantidad unitaria es requerida' })
+    cantidadUnitaria: number;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'El número de elementos es requerido' })
+    nroElementos: number;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'El número de iguales es requerido' })
+    nroIguales: number;
+}
+
+export class ElementoDto {
+    @IsString()
+    @IsNotEmpty({ message: 'El nombre del elemento es requerido' })
+    @MaxLength(50, { message: 'El nombre no puede exceder 50 caracteres' })
+    nombre: string;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DetalleDto)
+    detalle: DetalleDto[];
+}
+
 
 export class CreatePlanillaDto {
     @IsString()
@@ -44,5 +92,10 @@ export class CreatePlanillaDto {
     @IsNotEmpty()
     @MaxLength(20, { message: 'El item no puede tener más de 20 caracteres' })
     item: string;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ElementoDto)
+    elemento: ElementoDto[];
 
 }

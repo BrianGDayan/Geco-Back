@@ -2,10 +2,11 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
+import { ProgresoService } from 'src/progreso/progreso.service';
 
 @Injectable()
 export class RegistrosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private progresoService: ProgresoService) {}
 
   async createRegistro(createRegistroDto: CreateRegistroDto, idUsuario: number) {
     return this.prisma.$transaction(async (prisma) => {
@@ -71,6 +72,10 @@ export class RegistrosService {
         });
       }
 
+      if (detalleTarea.completado) {
+        await this.progresoService.actualizarProgresos(createRegistroDto.idDetalle);
+      }
+
       // Obtener la fecha actual y el diametro
       const fecha = createRegistroDto.fecha || new Date();
 
@@ -101,7 +106,6 @@ export class RegistrosService {
           id_ayudante: ayudante.id_trabajador,       
         },
       });
-
       return registro;
     });
   }
@@ -122,7 +126,7 @@ export class RegistrosService {
       const newHorasAyudante = updateRegistroDto.horasAyudante ?? registro.horas_ayudante;
      
       // Obtener el detalle de tarea asociado.
-      const detalleTarea = await prisma.detalle_tarea.findUnique({
+      let detalleTarea = await prisma.detalle_tarea.findUnique({
         where: { id_detalle_tarea: registro.id_detalle_tarea },
       });
       if (!detalleTarea) {
@@ -149,13 +153,17 @@ export class RegistrosService {
       }
 
       // Actualizar la cantidad_acumulada en detalle_tarea (incrementar con el delta).
-      await prisma.detalle_tarea.update({
+      detalleTarea = await prisma.detalle_tarea.update({
         where: { id_detalle_tarea: detalleTarea.id_detalle_tarea },
         data: {
           cantidad_acumulada: { increment: deltaCantidad },
           completado: newCantidadAcumulada === detalleRecord.cantidad_total,
         },
       });
+
+      if (detalleTarea.completado) {
+        await this.progresoService.actualizarProgresos(detalleTarea.id_detalle);
+      }
 
       // Obtener el registro de diametro usando el campo medida_diametro del detalle.
       const diametroRecord = await prisma.diametro.findUnique({
@@ -207,7 +215,6 @@ export class RegistrosService {
           id_ayudante: newIdAyudante,
         },
       });
-
       return updatedRegistro;
     });
   }

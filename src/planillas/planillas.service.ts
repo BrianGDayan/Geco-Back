@@ -7,7 +7,8 @@ import { UpdateDetalleDto } from './dto/update-detalle.dto';
 export class PlanillasService {
     constructor(private prisma: PrismaService) {}
 
-    async getPlanillaByNro(nroPlanilla: string, tareaId: number) {
+    async getPlanillaByNro(nroPlanilla: string, idTarea: number) {
+        // Obtener la planilla por su número y filtra por tarea
         return this.prisma.planilla.findUnique({
             where: { nro_planilla: nroPlanilla },
             select: {
@@ -21,6 +22,12 @@ export class PlanillasService {
                 fecha: true,
                 revision: true,
                 item: true,
+                rendimiento_global_corte_trabajador: true,
+                rendimiento_global_doblado_trabajador: true,
+                rendimiento_global_empaquetado_trabajador: true,
+                rendimiento_global_corte_ayudante: true,
+                rendimiento_global_doblado_ayudante: true,
+                rendimiento_global_empaquetado_ayudante: true,
                 elemento: {
                     select: {
                         nombre_elemento: true,
@@ -36,7 +43,7 @@ export class PlanillasService {
                                 nro_iguales: true,
                                 cantidad_total: true,
                                 detalle_tarea: {
-                                    where: { id_tarea: tareaId }, // Filtra por tarea
+                                    where: { id_tarea: idTarea }, // Filtra por tarea
                                     select: {
                                         id_detalle_tarea: true,
                                         tarea: { select: { nombre_tarea: true } }, // Nombre de la tarea
@@ -63,53 +70,38 @@ export class PlanillasService {
         });
     }
     
+    // Obtener las planillas con un progreso específico (usada para mostrar planillas completadas donde progreso = 100)
     async getPlanillasByProgreso(progreso: number) {
         return this.prisma.planilla.findMany({
             where: { progreso: progreso },
+            select: {
+                nro_planilla: true,
+                obra: true,
+                nro_plano: true,
+                sector: true,
+                item: true,
+                progreso: true,
+            },
         });
     }
 
+    // Obtener las planillas con un progreso menor a un valor específico (usada para mostrar planillas en curso donde progreso < 100)
     async getPlanillasByProgresoLessThan(progreso: number) {
         return this.prisma.planilla.findMany({
             where: { progreso: { lt: progreso } },
-        });
-    }
-
-    async calcularRendimientoPromedioPorObra(obra: string) {
-        const planillas = await this.prisma.planilla.findMany({
-            where: { obra: obra },
             select: {
-                rendimiento_global_corte: true,
-                rendimiento_global_doblado: true,
-                rendimiento_global_empaquetado: true,
+                nro_planilla: true,
+                obra: true,
+                nro_plano: true,
+                sector: true,
+                item: true,
+                progreso: true,
             },
         });
-
-        if (planillas.length === 0) {
-            return {
-                promedio_corte: 0,
-                promedio_doblado: 0,
-                promedio_empaquetado: 0,
-            };
-        }
-
-        const totalCorte = planillas.reduce((sum, planilla) => sum + planilla.rendimiento_global_corte, 0);
-        const totalDoblado = planillas.reduce((sum, planilla) => sum + planilla.rendimiento_global_doblado, 0);
-        const totalEmpaquetado = planillas.reduce((sum, planilla) => sum + planilla.rendimiento_global_empaquetado, 0);
-
-        const promedioCorte = totalCorte / planillas.length;
-        const promedioDoblado = totalDoblado / planillas.length;
-        const promedioEmpaquetado = totalEmpaquetado / planillas.length;
-
-        return {
-            promedio_corte: promedioCorte,
-            promedio_doblado: promedioDoblado,
-            promedio_empaquetado: promedioEmpaquetado,
-        };
     }
-
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
+        // Crear la planilla junto con sus elementos y detalles
         return this.prisma.$transaction(async (prisma) => {
             const planilla = await prisma.planilla.create({
                 data: {
@@ -146,6 +138,7 @@ export class PlanillasService {
         });
     }
 
+    // Método auxiliar para crear los datos del elemento
     private createElementoData(elemento: ElementoDto) {
         return {
             nombre_elemento: elemento.nombre,
@@ -157,6 +150,7 @@ export class PlanillasService {
         };
     }
 
+    // Método auxiliar para crear los datos del detalle
     private createDetalleData(detalle: DetalleDto) {
         return {
             especificacion: detalle.especificacion,
@@ -171,9 +165,10 @@ export class PlanillasService {
         };
     }
 
+    // Método para actualizar un detalle específico
     async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto) {
         return this.prisma.$transaction(async (prisma) => {
-            // 1. Obtener detalle actual con su elemento
+            // Obtener detalle actual con su elemento
             const detalleActual = await prisma.detalle.findUnique({
                 where: { id_detalle: idDetalle },
                 include: { elemento: true }
@@ -183,7 +178,7 @@ export class PlanillasService {
                 throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
             }
 
-            // 2. Calcular nueva cantidad_total si cambian los componentes
+            // Calcular nueva cantidad_total si cambian los componentes
             let cantidadTotal = detalleActual.cantidad_total;
             if (updateDetalleDto.cantidadUnitaria || updateDetalleDto.nroElementos || updateDetalleDto.nroIguales) {
                 const nuevaCantidadUnitaria = updateDetalleDto.cantidadUnitaria ?? detalleActual.cantidad_unitaria;
@@ -197,7 +192,7 @@ export class PlanillasService {
                 cantidadTotal = nuevaCantidadUnitaria * nuevoNroElementos * nuevoNroIguales;
             }
 
-            // 3. Actualizar el detalle
+            // Actualizar el detalle
             const detalleActualizado = await prisma.detalle.update({
                 where: { id_detalle: idDetalle },
                 data: {
@@ -208,11 +203,7 @@ export class PlanillasService {
                 include: { elemento: true }
             });
 
-            // 4. Actualizar progresos en cascada
-            await this.actualizarProgresoElemento(detalleActualizado.id_elemento);
-            await this.actualizarProgresoPlanilla(detalleActualizado.elemento.nro_planilla);
-
-            // 5. Incrementar revisión en planilla
+            // Incrementar revisión en planilla
             await prisma.planilla.update({
                 where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
                 data: { revision: { increment: 1 } }
@@ -222,38 +213,18 @@ export class PlanillasService {
         });
     }
 
-    private async actualizarProgresoElemento(idElemento: number) {
-        const elemento = await this.prisma.elemento.findUnique({
-            where: { id_elemento: idElemento },
-            include: { detalle: true }
-        });
-
-        if (!elemento) return;
-
-        const totalDetalles = elemento.detalle.length;
-        const progresoPromedio = elemento.detalle.reduce((sum, d) => sum + d.progreso, 0) / totalDetalles;
-
-        await this.prisma.elemento.update({
-            where: { id_elemento: idElemento },
-            data: { progreso: Math.round(progresoPromedio) }
-        });
-    }
-
-    private async actualizarProgresoPlanilla(nroPlanilla: string) {
-        const planilla = await this.prisma.planilla.findUnique({
-            where: { nro_planilla: nroPlanilla },
-            include: { elemento: true }
-        });
-
-        if (!planilla) return;
-
-        const totalElementos = planilla.elemento.length;
-        const progresoPromedio = planilla.elemento.reduce((sum, e) => sum + e.progreso, 0) / totalElementos;
-
-        await this.prisma.planilla.update({
-            where: { nro_planilla: nroPlanilla },
-            data: { progreso: Math.round(progresoPromedio) }
-        });
-    }
-
+    // Método para eliminar una planilla junto con sus elementos, detalles, detlle_tarea y registros asociados
+    async deletePlanilla(nroPlanilla: string) {
+        try {
+          const planillaEliminada = await this.prisma.planilla.delete({
+            where: {
+              nro_planilla: nroPlanilla,
+            },
+          });
+          return planillaEliminada;
+        } catch (error) {
+          throw new BadRequestException('Error al eliminar la planilla.');
+        }
+      }
+      
 }

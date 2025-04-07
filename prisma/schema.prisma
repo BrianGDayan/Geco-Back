@@ -53,9 +53,12 @@ model planilla {
   item               String     @db.VarChar(20)
   progreso           Int        @default(0)
   id_usuario         Int
-  rendimiento_global_corte Float @db.Real @default(0)
-  rendimiento_global_doblado Float @db.Real @default(0)
-  rendimiento_global_empaquetado Float @db.Real @default(0)
+  rendimiento_global_corte_trabajador Float @db.Real @default(0)
+  rendimiento_global_doblado_trabajador Float @db.Real @default(0)
+  rendimiento_global_empaquetado_trabajador Float @db.Real @default(0)
+  rendimiento_global_corte_ayudante        Float @db.Real @default(0)
+  rendimiento_global_doblado_ayudante      Float @db.Real @default(0)
+  rendimiento_global_empaquetado_ayudante  Float @db.Real @default(0)
   elemento           elemento[]
   usuario            usuario    @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
 }

@@ -1,46 +1,56 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, Res, UseGuards, HttpStatus, ValidationPipe, UnauthorizedException } from "@nestjs/common";
 import { Request, Response } from "express";
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from "src/auth/guards/roles.guard";
 import { CreatePlanillaDto } from "./dto/create-planilla.dto";
 import { PlanillasService } from "./planillas.service";
 import { UpdateDetalleDto } from "./dto/update-detalle.dto";
-import { UserPayload } from "src/auth/type/auth.types";
+import { UserPayload, UserRole } from "src/auth/type/auth.types";
+import { RendimientoService } from "./rendimiento.service";
+import { Roles } from "src/auth/decorators/roles.decorator";
+
 
 
 @Controller('planillas')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)   
 export class PlanillasController { 
  
-    constructor(private readonly planillasService: PlanillasService) {}
+    constructor(private readonly planillasService: PlanillasService, private readonly rendimientoService: RendimientoService) {}
 
     // Endpoint para obtener una planilla por el nro de planilla
     @Get(':nroPlanilla')
-    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('tareaId', new ParseIntPipe()) tareaId: number) {
-        if (![1, 2, 3].includes(tareaId)) {
+    @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
+    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('tareaId', new ParseIntPipe()) idTarea: number) {
+        if (![1, 2, 3].includes(idTarea)) {
             throw new BadRequestException('Tarea inválida');
         }
-        return this.planillasService.getPlanillaByNro(nroPlanilla, tareaId);
+        return this.planillasService.getPlanillaByNro(nroPlanilla, idTarea);
     }
      
     // Endpoint para obtener planillas completadas (progreso = 100)
     @Get('completadas')
+    @Roles(UserRole.ADMIN)
     async getPlanillasCompletadas() {
         return this.planillasService.getPlanillasByProgreso(100);
     }
  
     // Endpoint para obtener planillas en curso (progreso < 100)
     @Get('en-curso')
+    @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
     async getPlanillasEnCurso() {
         return this.planillasService.getPlanillasByProgresoLessThan(100);
     }
 
-    @Get('rendimiento-por-obra/:obra')
-    async getRendimientoPorObra(@Param('obra') obra: string) {
-        return this.planillasService.calcularRendimientoPromedioPorObra(obra);
+    // Endpoint para obtener los rendimientos filtrados por obra
+    @Get('obra/:obra/rendimientos')
+    @Roles(UserRole.ADMIN)
+    async getRendimientosPorObra(@Param('obra') obra: string) {
+        return this.rendimientoService.calcularRendimientosPorObra(obra);
     }
 
-
+    // Endpoint para crear una planilla
     @Post()
+    @Roles(UserRole.ADMIN)
     async createPlanilla(@Body(ValidationPipe) createPlanillaDto: CreatePlanillaDto, @Req() req: Request, @Res() res: Response) {
 
         if (!req.user) {
@@ -52,10 +62,27 @@ export class PlanillasController {
         return res.status(HttpStatus.CREATED).json(planilla);
     }
 
-    @Patch('detalles/:id')
-    @UseGuards(JwtAuthGuard)
-    async updateDetalle(@Param('id', ParseIntPipe) id: number, @Body() updateDetalleDto: UpdateDetalleDto, @Req() req: Request & { user: UserPayload }) {
-        return this.planillasService.updateDetalle(id, updateDetalleDto);
+    // Endpoint para modificar un detalle de planilla
+    @Patch('detalles/:idDetalle')
+    @Roles(UserRole.ADMIN)
+    async updateDetalle(@Param('idDetalle', ParseIntPipe) idDetalle: number, @Body() updateDetalleDto: UpdateDetalleDto, @Req() req: Request & { user: UserPayload }) {
+        return this.planillasService.updateDetalle(idDetalle, updateDetalleDto);
     }
+
+    // Endpoint para eliminar una planilla
+    @Delete(':nroPlanilla')
+    @Roles(UserRole.ADMIN)
+    async deletePlanilla(@Param('nroPlanilla', ParseIntPipe) nroPlanilla: string, @Req() req: Request & { user: UserPayload }) {
+        try {
+            const planillaEliminada = await this.planillasService.deletePlanilla(nroPlanilla);
+            return {
+              message: 'Planilla eliminada exitosamente',
+              planillaEliminada,
+            };
+          } catch (error) {
+            throw new BadRequestException('No se pudo eliminar la planilla', error.message);
+          }
+    }
+
 
 }

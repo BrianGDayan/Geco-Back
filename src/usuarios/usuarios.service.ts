@@ -7,7 +7,7 @@ import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 export class UsuariosService {
     constructor(private prisma: PrismaService) {}
 
-    async getUsuarios(rol?: 'administrador' | 'encargado') {
+    async obtenerUsuarios(rol?: 'administrador' | 'encargado') {
         const usuarios = await this.prisma.usuario.findMany({
             where: rol ? { rol } : {}, // Filtra si se proporciona un rol
         });
@@ -18,47 +18,35 @@ export class UsuariosService {
 
         return usuarios;
     }
-    async getUsuarioById(id: number) {
+    async obtenerUsuarioPorId(idUsuario: number) {
         const usuario = await this.prisma.usuario.findUnique({
-            where: { id_usuario: id },
+            where: { id_usuario: idUsuario },
         });
         if (!usuario) {
-            throw new NotFoundException(`Usuario con id ${id} no encontrado`);
+            throw new NotFoundException(`Usuario con id ${idUsuario} no encontrado`);
         }
         return usuario;
     }
 
-    async createUsuario(createUsuarioDto: CreateUsuarioDto) {
+    async crearUsuario(createUsuarioDto: CreateUsuarioDto) {
         return await this.prisma.usuario.create({
             data: createUsuarioDto,
         });
     }
 
-    async updateUsuario(id: number, updateUsuarioDto: UpdateUsuarioDto) {
+    async actualizarUsuario(idUsuario: number, updateUsuarioDto: UpdateUsuarioDto) {
   
         const usuarioExistente = await this.prisma.usuario.findUnique({
-        where: { id_usuario: id },
+        where: { id_usuario: idUsuario },
         });
 
         if (!usuarioExistente) {
-            throw new NotFoundException(`Usuario con id ${id} no encontrado`);
+            throw new NotFoundException(`Usuario con id ${idUsuario} no encontrado`);
         }
 
         return await this.prisma.usuario.update({
-        where: { id_usuario: id },
-        data: updateUsuarioDto,
-        });
-    }
-
-    async deleteUsuario(id: number) {
-        const usuarioExistente = await this.prisma.usuario.findUnique({
-            where: { id_usuario: id },
-        })
-        if (!usuarioExistente) {
-            throw new NotFoundException(`Usuario con id ${id} no encontrado`);
-        }
-        return await this.prisma.usuario.delete({
-            where: {id_usuario: id},
+            where: { id_usuario: idUsuario },
+            data: updateUsuarioDto,
         });
     }
 }

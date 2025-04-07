@@ -13,17 +13,17 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    // 1. Buscar usuario por id_usuario
+    // Buscar usuario por su ID
     const usuario = await this.prisma.usuario.findUnique({
-      where: { id_usuario: loginDto.id_usuario },
+      where: { id_usuario: loginDto.idUsuario },
     });
 
-    // 2. Verificar si existe y coincide la clave
+    // Verificar si existe y coincide la clave
     if (!usuario || !(await bcrypt.compare(loginDto.clave, usuario.clave))) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // 3. Generar JWT
+    // Generar JWT
     const payload: UserPayload = { 
       id_usuario: usuario.id_usuario,
       rol: usuario.rol 

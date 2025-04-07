@@ -6,8 +6,9 @@ import { PlanillasModule } from './planillas/planillas.module';
 import { RegistrosModule } from './registros/registros.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TrabajadoresModule } from './trabajadores/trabajadores.module';
+import { ProgresoModule } from './progreso/progreso.module';
 
 @Module({
-  imports: [AuthModule, ScheduleModule.forRoot(), UsuariosModule, PlanillasModule, RegistrosModule, PrismaModule, TrabajadoresModule],
+  imports: [AuthModule, ScheduleModule.forRoot(), UsuariosModule, PlanillasModule, RegistrosModule, PrismaModule, TrabajadoresModule, ProgresoModule],
 })
 export class AppModule {}

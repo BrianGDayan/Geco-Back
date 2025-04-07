@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
-import { PlanillasController } from './planillas.controller';
-import { PlanillasService } from './planillas.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PrismaModule } from '../prisma/prisma.module';
+import { RendimientoService } from './rendimiento.service';
+import { RendimientoJobs } from './rendimiento.jobs';
+
 @Module({
-    controllers: [PlanillasController],
-    providers: [PlanillasService],
+  imports: [PrismaModule, ScheduleModule.forRoot()],
+  providers: [RendimientoService, RendimientoJobs],
+  exports: [RendimientoService]
 })
 export class PlanillasModule {}

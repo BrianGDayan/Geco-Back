@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { trabajador } from '@prisma/client';
 
 @Injectable()
 export class TrabajadoresService {
@@ -74,7 +75,7 @@ export class TrabajadoresService {
 
   async obtenerRendimientosPorTarea(idTarea: number) {
     // Determinar el campo de rendimiento según el id de la tarea.
-    let campoRendimiento: string;
+    let campoRendimiento: keyof trabajador;
     switch (idTarea) {
       case 1:
         campoRendimiento = 'rendimiento_corte';
@@ -101,6 +102,7 @@ export class TrabajadoresService {
     const trabajadores = await this.prisma.trabajador.findMany({
       where: { activo: true },
       select: selectObj,
+      orderBy: { [campoRendimiento]: 'desc' },
     });
 
     return trabajadores;

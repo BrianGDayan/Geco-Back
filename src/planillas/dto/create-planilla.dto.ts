@@ -88,6 +88,10 @@ export class CreatePlanillaDto {
     @IsNotEmpty()
     fecha: Date;
 
+    @IsNumber()
+    @IsNotEmpty({ message: 'El peso total estimado es requerido' })
+    pesoEstimado: number;
+
     @IsString()
     @IsNotEmpty()
     @MaxLength(20, { message: 'El item no puede tener más de 20 caracteres' })

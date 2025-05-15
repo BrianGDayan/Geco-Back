@@ -9,10 +9,6 @@ export class CreateRegistroDto {
   @IsNotEmpty()
   idTarea: number; 
 
-  @IsOptional()
-  @IsDate()
-  fecha?: Date; 
-
   @IsInt()
   @IsNotEmpty()
   cantidad: number;

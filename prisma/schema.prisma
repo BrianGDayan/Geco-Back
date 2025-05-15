@@ -53,6 +53,9 @@ model planilla {
   item               String     @db.VarChar(20)
   progreso           Int        @default(0)
   id_usuario         Int
+  peso_estimado      Float      @db.Real @default(0)
+  pesos_diametro     Json       @default("[]")
+  peso_producido     Float      @db.Real @default(0)
   rendimiento_global_corte_trabajador Float @db.Real @default(0)
   rendimiento_global_doblado_trabajador Float @db.Real @default(0)
   rendimiento_global_empaquetado_trabajador Float @db.Real @default(0)

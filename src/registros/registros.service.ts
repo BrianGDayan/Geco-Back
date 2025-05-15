@@ -77,7 +77,7 @@ export class RegistrosService {
       }
 
       // Obtener la fecha actual y el diametro
-      const fecha = createRegistroDto.fecha || new Date();
+      const fecha = new Date();
 
       const diametroRecord = await prisma.diametro.findUnique({
         where: { medida_diametro: detalleRecord.medida_diametro },

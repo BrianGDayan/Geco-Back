@@ -68,10 +68,62 @@ export class RendimientoService {
       [`rendimiento_global_${curr.tipo}_ayudante`]: curr.ayudante
     }), {});
 
+    // Calcular el peso producido total y por diámetro
+    const registros = await this.prisma.registro.findMany({
+      where: {
+        detalle_tarea: {
+          detalle: {
+            elemento: {
+              nro_planilla: nroPlanilla
+            }
+          }
+        }
+      },
+      select: {
+        cantidad: true,
+        detalle_tarea: {
+          select: {
+            detalle: {
+              select: {
+                medida_diametro: true,
+                diametro: {
+                  select: {
+                    peso_por_metro: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const pesosPorDiametro: Record<number, number> = {};
+    let pesoTotal = 0;
+
+    for (const registro of registros) {
+      const cantidad = registro.cantidad;
+      const pesoMetro = registro.detalle_tarea.detalle.diametro.peso_por_metro;
+      const diametro = registro.detalle_tarea.detalle.medida_diametro;
+      const pesoParcial = cantidad * pesoMetro;
+
+      pesoTotal += pesoParcial;
+      pesosPorDiametro[diametro] = (pesosPorDiametro[diametro] || 0) + pesoParcial;
+    }
+
+    const pesos_diametro = Object.entries(pesosPorDiametro)
+      .map(([diametro, peso]) => [Number(diametro), peso])
+      .sort((a, b) => a[0] - b[0]);
+    const peso_producido = pesoTotal;
+    
     // Actualizar la planilla con los nuevos rendimientos
     await this.prisma.planilla.update({
       where: { nro_planilla: nroPlanilla },
-      data: rendimientos
+      data: {
+        ...rendimientos,
+        peso_producido,
+        pesos_diametro
+      }
     });
   }
 

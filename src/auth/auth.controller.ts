@@ -10,7 +10,20 @@ export class AuthController {
   // Endpoint para el inicio de sesión
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Res() res: Response) {
-    const token = await this.authService.login(loginDto);
-    return res.status(HttpStatus.OK).json({ token });
+    const { id_usuario, rol, access_token } = await this.authService.login(loginDto);
+
+  // Enviar el token en una cookie HTTP-only
+    res.cookie('token', access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Solo en producción
+      sameSite: 'lax',
+      maxAge: 100 * 60 * 60 * 24, // 1 día
+      path: '/',
+    });
+
+    return res.status(HttpStatus.OK).json({ 
+      id_usuario,
+      rol,
+     });
   }
 }

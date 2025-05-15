@@ -9,8 +9,6 @@ import { UserPayload, UserRole } from "src/auth/type/auth.types";
 import { RendimientoService } from "./rendimiento.service";
 import { Roles } from "src/auth/decorators/roles.decorator";
 
-
-
 @Controller('planillas')
 @UseGuards(JwtAuthGuard, RolesGuard)   
 export class PlanillasController { 
@@ -20,7 +18,7 @@ export class PlanillasController {
     // Endpoint para obtener una planilla por el nro de planilla
     @Get(':nroPlanilla')
     @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
-    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('tareaId', new ParseIntPipe()) idTarea: number) {
+    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('idTarea', new ParseIntPipe()) idTarea: number) {
         if (![1, 2, 3].includes(idTarea)) {
             throw new BadRequestException('Tarea inválida');
         }
@@ -42,9 +40,9 @@ export class PlanillasController {
     }
 
     // Endpoint para obtener los rendimientos filtrados por obra
-    @Get('obra/:obra/rendimientos')
+    @Get('rendimientos')
     @Roles(UserRole.ADMIN)
-    async getRendimientosPorObra(@Param('obra') obra: string) {
+    async getRendimientosPorObra(@Query('obra') obra: string) {
         return this.rendimientoService.calcularRendimientosPorObra(obra);
     }
 
@@ -65,14 +63,14 @@ export class PlanillasController {
     // Endpoint para modificar un detalle de planilla
     @Patch('detalles/:idDetalle')
     @Roles(UserRole.ADMIN)
-    async updateDetalle(@Param('idDetalle', ParseIntPipe) idDetalle: number, @Body() updateDetalleDto: UpdateDetalleDto, @Req() req: Request & { user: UserPayload }) {
+    async updateDetalle(@Param('idDetalle', ParseIntPipe) idDetalle: number, @Body() updateDetalleDto: UpdateDetalleDto) {
         return this.planillasService.updateDetalle(idDetalle, updateDetalleDto);
     }
 
     // Endpoint para eliminar una planilla
     @Delete(':nroPlanilla')
     @Roles(UserRole.ADMIN)
-    async deletePlanilla(@Param('nroPlanilla', ParseIntPipe) nroPlanilla: string, @Req() req: Request & { user: UserPayload }) {
+    async deletePlanilla(@Param('nroPlanilla', ParseIntPipe) nroPlanilla: string) {
         try {
             const planillaEliminada = await this.planillasService.deletePlanilla(nroPlanilla);
             return {

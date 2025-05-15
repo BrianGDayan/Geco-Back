@@ -19,8 +19,7 @@ export class TrabajadoresController {
     if (![1, 2, 3].includes(idTarea)) {
       throw new BadRequestException('Tarea inválida. Debe ser 1, 2 o 3.');
     }
-    const trabajadores = await this.trabajadoresService.obtenerRendimientosPorTarea(idTarea);
-    return trabajadores;
+    return this.trabajadoresService.obtenerRendimientosPorTarea(idTarea);
   }
 
   // Endpoint para actualizar los rendimientos manualmente

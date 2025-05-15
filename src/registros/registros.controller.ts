@@ -8,7 +8,7 @@ import { UpdateRegistroDto } from './dto/update-registro.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'src/auth/type/auth.types';
 
-@Controller('registro')
+@Controller('registros')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class RegistrosController {
   constructor(private readonly registrosService: RegistrosService) {}
@@ -34,15 +34,8 @@ export class RegistrosController {
   // Endpoint para actualizar un registro existente
   @Patch(':idRegistro')
   @Roles(UserRole.ENCARGADO)
-  async updateRegistro(@Param('idRegistro', ParseIntPipe) idRegistro: number, @Body() updateRegistroDto: UpdateRegistroDto, @Req() req: Request, @Res() res: Response) {
-    if (!req.user) {
-      throw new UnauthorizedException('Usuario no autenticado');
-    }
-    try {
-      const updatedRegistro = await this.registrosService.updateRegistro(idRegistro, updateRegistroDto);
-      return res.status(HttpStatus.OK).json(updatedRegistro);
-    } catch (error) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
-    }
+  async updateRegistro(@Param('idRegistro', ParseIntPipe) idRegistro: number, @Body() updateRegistroDto: UpdateRegistroDto) {
+      return this.registrosService.updateRegistro(idRegistro, updateRegistroDto);
   }
+  
 }

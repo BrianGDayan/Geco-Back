@@ -22,6 +22,9 @@ export class PlanillasService {
                 fecha: true,
                 revision: true,
                 item: true,
+                peso_estimado: true,
+                pesos_diametro: true,
+                peso_producido: true,
                 rendimiento_global_corte_trabajador: true,
                 rendimiento_global_doblado_trabajador: true,
                 rendimiento_global_empaquetado_trabajador: true,
@@ -42,6 +45,7 @@ export class PlanillasService {
                                 nro_elementos: true,
                                 nro_iguales: true,
                                 cantidad_total: true,
+                                progreso: true,
                                 detalle_tarea: {
                                     where: { id_tarea: idTarea }, // Filtra por tarea
                                     select: {
@@ -102,6 +106,7 @@ export class PlanillasService {
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
         // Crear la planilla junto con sus elementos y detalles
+        const tareas = [1, 2, 3];
         return this.prisma.$transaction(async (prisma) => {
             const planilla = await prisma.planilla.create({
                 data: {
@@ -114,10 +119,11 @@ export class PlanillasService {
                     encargado_aprobar: createPlanillaDto.encargadoAprobar,
                     fecha: createPlanillaDto.fecha,
                     item: createPlanillaDto.item,
+                    peso_estimado: createPlanillaDto.pesoEstimado,
                     id_usuario: idUsuario,
                     elemento: {
                         create: createPlanillaDto.elemento.map(elemento => 
-                            this.createElementoData(elemento)
+                            this.createElementoData(elemento, tareas)
                         ),
                     },
                 },
@@ -139,19 +145,19 @@ export class PlanillasService {
     }
 
     // Método auxiliar para crear los datos del elemento
-    private createElementoData(elemento: ElementoDto) {
+    private createElementoData(elemento: ElementoDto, tareas: number[]) {
         return {
             nombre_elemento: elemento.nombre,
             detalle: {
                 create: elemento.detalle.map(detalle => 
-                    this.createDetalleData(detalle)
+                    this.createDetalleData(detalle, tareas)
                 ),
             },
         };
     }
 
     // Método auxiliar para crear los datos del detalle
-    private createDetalleData(detalle: DetalleDto) {
+    private createDetalleData(detalle: DetalleDto, tareas: number[]) {
         return {
             especificacion: detalle.especificacion,
             posicion: detalle.posicion.toString(),
@@ -162,6 +168,13 @@ export class PlanillasService {
             nro_elementos: detalle.nroElementos,
             nro_iguales: detalle.nroIguales,
             cantidad_total: detalle.cantidadUnitaria * detalle.nroElementos * detalle.nroIguales,
+            detalle_tarea: {
+                create: tareas.map(id_tarea => ({
+                    id_tarea,
+                    cantidad_acumulada: 0,
+                    completado: false,
+                })),
+            },
         };
     }
 

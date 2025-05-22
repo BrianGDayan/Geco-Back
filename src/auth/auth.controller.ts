@@ -13,13 +13,13 @@ export class AuthController {
     const { id_usuario, rol, access_token } = await this.authService.login(loginDto);
 
   // Enviar el token en una cookie HTTP-only
-    res.cookie('token', access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Solo en producción
-      sameSite: 'lax',
-      maxAge: 100 * 60 * 60 * 24, // 1 día
-      path: '/',
-    });
+  res.cookie('access_token', access_token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 2 * 60 * 60 * 1000,  // 2 horas
+    path: '/',
+  });
 
     return res.status(HttpStatus.OK).json({ 
       id_usuario,

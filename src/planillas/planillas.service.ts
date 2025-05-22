@@ -103,6 +103,15 @@ export class PlanillasService {
             },
         });
     }
+
+    async obtenerObras() {
+        const obras = await this.prisma.planilla.findMany({
+            distinct: ['obra'],
+            select: { obra: true }
+        });
+        return obras.map(o => o.obra);
+    }
+
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
         // Crear la planilla junto con sus elementos y detalles

@@ -39,6 +39,13 @@ export class PlanillasController {
         return this.planillasService.getPlanillasByProgresoLessThan(100);
     }
 
+    // Endpoint para obtener obras
+    @Get('obras')
+    @Roles(UserRole.ADMIN)
+    async getObras() {
+    return this.planillasService.obtenerObras();
+    }
+
     // Endpoint para obtener los rendimientos filtrados por obra
     @Get('rendimientos')
     @Roles(UserRole.ADMIN)

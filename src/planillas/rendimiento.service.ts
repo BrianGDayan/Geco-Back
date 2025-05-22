@@ -128,19 +128,34 @@ export class RendimientoService {
   }
 
   async calcularRendimientosPorObra(obra: string) {
-    const rendimientos = await this.prisma.planilla.groupBy({
-      by: ['obra'],
-      where: { obra },
+  // Obtener rendimientos para todas las obras
+  if (obra === 'todas') {
+    const resultado = await this.prisma.planilla.aggregate({
       _avg: {
         rendimiento_global_corte_trabajador: true,
         rendimiento_global_doblado_trabajador: true,
         rendimiento_global_empaquetado_trabajador: true,
         rendimiento_global_corte_ayudante: true,
         rendimiento_global_doblado_ayudante: true,
-        rendimiento_global_empaquetado_ayudante: true
-      }
+        rendimiento_global_empaquetado_ayudante: true,
+      },
     });
-
-    return rendimientos[0]?._avg || null;
+    return resultado._avg;
   }
+  // Obtener rendimientos para una obra específica
+  const resultado = await this.prisma.planilla.groupBy({
+    by: ['obra'],
+    where: { obra },
+    _avg: {
+      rendimiento_global_corte_trabajador: true,
+      rendimiento_global_doblado_trabajador: true,
+      rendimiento_global_empaquetado_trabajador: true,
+      rendimiento_global_corte_ayudante: true,
+      rendimiento_global_doblado_ayudante: true,
+      rendimiento_global_empaquetado_ayudante: true,
+    },
+  });
+  return resultado[0]?._avg || null;
+  }
+
 }

@@ -22,7 +22,6 @@ export class PlanillasService {
                 fecha: true,
                 revision: true,
                 item: true,
-                peso_estimado: true,
                 pesos_diametro: true,
                 peso_producido: true,
                 rendimiento_global_corte_trabajador: true,
@@ -128,7 +127,6 @@ export class PlanillasService {
                     encargado_aprobar: createPlanillaDto.encargadoAprobar,
                     fecha: createPlanillaDto.fecha,
                     item: createPlanillaDto.item,
-                    peso_estimado: createPlanillaDto.pesoEstimado,
                     id_usuario: idUsuario,
                     elemento: {
                         create: createPlanillaDto.elemento.map(elemento => 

@@ -114,14 +114,13 @@ export class RendimientoService {
     const pesos_diametro = Object.entries(pesosPorDiametro)
       .map(([diametro, peso]) => [Number(diametro), peso])
       .sort((a, b) => a[0] - b[0]);
-    const peso_producido = pesoTotal;
     
     // Actualizar la planilla con los nuevos rendimientos
     await this.prisma.planilla.update({
       where: { nro_planilla: nroPlanilla },
       data: {
         ...rendimientos,
-        peso_producido,
+        peso_total: pesoTotal,
         pesos_diametro
       }
     });

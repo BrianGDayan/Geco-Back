@@ -7,20 +7,23 @@ import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 export class UsuariosService {
     constructor(private prisma: PrismaService) {}
 
-    async obtenerUsuarios(rol?: 'administrador' | 'encargado') {
+    async obtenerUsuarios() {
         const usuarios = await this.prisma.usuario.findMany({
-            where: rol ? { rol } : {}, // Filtra si se proporciona un rol
+            select: {
+                id_usuario: true,
+                rol: true,
+            }
         });
-
-        if (usuarios.length === 0) {
-            throw new NotFoundException(`No hay usuarios con rol ${rol}`);
-        }
-
         return usuarios;
     }
+    
     async obtenerUsuarioPorId(idUsuario: number) {
         const usuario = await this.prisma.usuario.findUnique({
             where: { id_usuario: idUsuario },
+            select: {
+                id_usuario: true,
+                rol: true,
+            }
         });
         if (!usuario) {
             throw new NotFoundException(`Usuario con id ${idUsuario} no encontrado`);

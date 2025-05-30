@@ -17,10 +17,10 @@ export class UsuariosController {
     // Endpoint para obtener todos los usuarios
     @Get()
     @Roles(UserRole.ADMIN)
-    async getUsuarios(@Query('rol') rol?: 'administrador' | 'encargado') {
-        return this.usuariosService.obtenerUsuarios(rol);
+    async getUsuarios() {
+        return this.usuariosService.obtenerUsuarios();
     }
-
+    
      // Endpoint para obtener un usuario por su id
     @Get(':idUsuario')
     @Roles(UserRole.ADMIN)

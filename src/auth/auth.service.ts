@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { UserPayload } from './type/auth.types';
 
@@ -19,7 +18,7 @@ export class AuthService {
     });
 
     // Verificar si existe y coincide la clave
-    if (!usuario || !(await bcrypt.compare(loginDto.clave, usuario.clave))) {
+    if (!usuario || usuario.clave !== loginDto.clave) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 

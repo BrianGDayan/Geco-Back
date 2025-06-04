@@ -190,48 +190,63 @@ export class PlanillasService {
         return this.prisma.$transaction(async (prisma) => {
             // Obtener detalle actual con su elemento
             const detalleActual = await prisma.detalle.findUnique({
-                where: { id_detalle: idDetalle },
-                include: { elemento: true }
+            where: { id_detalle: idDetalle },
+            include: { elemento: true }
             });
 
             if (!detalleActual) {
-                throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
+            throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
             }
 
             // Calcular nueva cantidad_total si cambian los componentes
             let cantidadTotal = detalleActual.cantidad_total;
-            if (updateDetalleDto.cantidadUnitaria || updateDetalleDto.nroElementos || updateDetalleDto.nroIguales) {
-                const nuevaCantidadUnitaria = updateDetalleDto.cantidadUnitaria ?? detalleActual.cantidad_unitaria;
-                const nuevoNroElementos = updateDetalleDto.nroElementos ?? detalleActual.nro_elementos;
-                const nuevoNroIguales = updateDetalleDto.nroIguales ?? detalleActual.nro_iguales;
-                
-                if ([nuevaCantidadUnitaria, nuevoNroElementos, nuevoNroIguales].some(v => v <= 0)) {
-                    throw new BadRequestException('Los valores deben ser mayores a 0');
-                }
-                
-                cantidadTotal = nuevaCantidadUnitaria * nuevoNroElementos * nuevoNroIguales;
+            const {
+            cantidadUnitaria,
+            nroElementos,
+            nroIguales,
+            medidaDiametro,
+            longitudCorte,
+            posicion,
+            ...restoDto
+            } = updateDetalleDto;
+
+            const nuevaCantidadUnitaria = cantidadUnitaria ?? detalleActual.cantidad_unitaria;
+            const nuevoNroElementos = nroElementos ?? detalleActual.nro_elementos;
+            const nuevoNroIguales = nroIguales ?? detalleActual.nro_iguales;
+
+            if ([cantidadUnitaria, nroElementos, nroIguales].some(v => v !== undefined)) {
+            if ([nuevaCantidadUnitaria, nuevoNroElementos, nuevoNroIguales].some(v => v <= 0)) {
+                throw new BadRequestException('Los valores deben ser mayores a 0');
+            }
+            cantidadTotal = nuevaCantidadUnitaria * nuevoNroElementos * nuevoNroIguales;
             }
 
             // Actualizar el detalle
             const detalleActualizado = await prisma.detalle.update({
-                where: { id_detalle: idDetalle },
-                data: {
-                    ...updateDetalleDto,
-                    cantidad_total: cantidadTotal,
-                    posicion: updateDetalleDto.posicion?.toString() ?? detalleActual.posicion,
-                },
-                include: { elemento: true }
+            where: { id_detalle: idDetalle },
+            data: {
+                ...restoDto,
+                medida_diametro: medidaDiametro ?? detalleActual.medida_diametro,
+                longitud_corte: longitudCorte ?? detalleActual.longitud_corte,
+                cantidad_unitaria: nuevaCantidadUnitaria,
+                nro_elementos: nuevoNroElementos,
+                nro_iguales: nuevoNroIguales,
+                cantidad_total: cantidadTotal,
+                posicion: posicion?.toString() ?? detalleActual.posicion,
+            },
+            include: { elemento: true },
             });
 
-            // Incrementar revisión en planilla
+            // Incrementar revisión en la planilla
             await prisma.planilla.update({
-                where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
-                data: { revision: { increment: 1 } }
+            where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
+            data: { revision: { increment: 1 } },
             });
 
             return detalleActualizado;
         });
     }
+
 
     // Método para eliminar una planilla junto con sus elementos, detalles, detlle_tarea y registros asociados
     async deletePlanilla(nroPlanilla: string) {

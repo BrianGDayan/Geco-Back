@@ -84,8 +84,9 @@ export class CreatePlanillaDto {
     @MaxLength(15, { message: 'El nombre del encargado de aprobar no puede tener más de 15 caracteres' })
     encargadoAprobar: string;
 
-    @IsDate()
-    @IsNotEmpty()
+    @IsDate({ message: 'La fecha debe ser una instancia de Date' })
+    @Type(() => Date)
+    @IsNotEmpty({ message: 'La fecha es requerida' })
     fecha: Date;
 
     @IsString()

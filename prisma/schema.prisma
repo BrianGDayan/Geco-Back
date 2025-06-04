@@ -68,9 +68,9 @@ model planilla {
 model trabajador {
   id_trabajador Int      @id @default(autoincrement())
   nombre        String   @db.VarChar(20)
-  rendimiento_corte Float @db.Real
-  rendimiento_doblado Float @db.Real
-  rendimiento_empaquetado Float @db.Real
+  rendimiento_corte Float @default(0) @db.Real
+  rendimiento_doblado Float @default(0) @db.Real
+  rendimiento_empaquetado Float @default(0) @db.Real
   activo         Boolean  @default(true)
   registros_principales  registro[] @relation("Registros_principales")
   registros_ayudante     registro[] @relation("Registros_ayudante")
@@ -117,7 +117,7 @@ model detalle_tarea {
 
 model usuario {
   id_usuario Int        @id @default(autoincrement())
-  clave      String     @db.VarChar(10)
+  clave      String     @db.VarChar(16)
   rol        String     @db.VarChar(12)
   planilla   planilla[]
   registro   registro[]

@@ -8,8 +8,8 @@ export class CreateUsuarioDto {
     @MaxLength(16, { message: 'La clave debe tener como máximo 16 caracteres' })
     clave: string;
 
-    @IsEnum(['administrador', 'encargado'], {
+    @IsEnum(['admin', 'encargado'], {
         message: 'El rol debe ser "administrador" o "encargado"'
     })
-    rol: 'administrador' | 'encargado';
+    rol: 'admin' | 'encargado';
 }

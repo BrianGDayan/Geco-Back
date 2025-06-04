@@ -15,16 +15,6 @@ export class PlanillasController {
  
     constructor(private readonly planillasService: PlanillasService, private readonly rendimientoService: RendimientoService) {}
 
-    // Endpoint para obtener una planilla por el nro de planilla
-    @Get(':nroPlanilla')
-    @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
-    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('idTarea', new ParseIntPipe()) idTarea: number) {
-        if (![1, 2, 3].includes(idTarea)) {
-            throw new BadRequestException('Tarea inválida');
-        }
-        return this.planillasService.getPlanillaByNro(nroPlanilla, idTarea);
-    }
-     
     // Endpoint para obtener planillas completadas (progreso = 100)
     @Get('completadas')
     @Roles(UserRole.ADMIN)
@@ -53,6 +43,16 @@ export class PlanillasController {
         return this.rendimientoService.calcularRendimientosPorObra(obra);
     }
 
+    // Endpoint para obtener una planilla por el nro de planilla
+    @Get(':nroPlanilla')
+    @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
+    async getPlanillaByNro(@Param('nroPlanilla') nroPlanilla: string, @Query('idTarea', new ParseIntPipe()) idTarea: number) {
+        if (![1, 2, 3].includes(idTarea)) {
+            throw new BadRequestException('Tarea inválida');
+        }
+        return this.planillasService.getPlanillaByNro(nroPlanilla, idTarea);
+    }
+
     // Endpoint para crear una planilla
     @Post()
     @Roles(UserRole.ADMIN)
@@ -77,7 +77,7 @@ export class PlanillasController {
     // Endpoint para eliminar una planilla
     @Delete(':nroPlanilla')
     @Roles(UserRole.ADMIN)
-    async deletePlanilla(@Param('nroPlanilla', ParseIntPipe) nroPlanilla: string) {
+    async deletePlanilla(@Param('nroPlanilla') nroPlanilla: string) {
         try {
             const planillaEliminada = await this.planillasService.deletePlanilla(nroPlanilla);
             return {

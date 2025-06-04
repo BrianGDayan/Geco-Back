@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -12,7 +13,14 @@ async function bootstrap() {
     origin: 'http://localhost:3000',
     credentials: true,
   });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // convierte strings en Date, number, etc.
+      whitelist: true, // elimina propiedades no definidas en los DTOs
+      forbidNonWhitelisted: true, // lanza error si se envía algo no permitido
+    })
+  );
   app.setGlobalPrefix('api');
-  await app.listen(process.env.PORT ?? 4000);
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

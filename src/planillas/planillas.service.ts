@@ -22,6 +22,7 @@ export class PlanillasService {
                 fecha: true,
                 revision: true,
                 item: true,
+                progreso: true,
                 peso_total: true,
                 pesos_diametro: true,
                 rendimiento_global_corte_trabajador: true,

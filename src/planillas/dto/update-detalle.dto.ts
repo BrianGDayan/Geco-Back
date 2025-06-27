@@ -1,13 +1,13 @@
-import { IsInt, IsNumber, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, IsUrl, ValidateIf } from 'class-validator';
 
 export class UpdateDetalleDto {
     @IsOptional()
-    @IsString()
+    @IsUrl({}, { message: 'La especificación debe ser una URL válida' })
     especificacion?: string;
   
     @IsOptional()
-    @IsInt()
-    posicion?: number;
+    @IsString()
+    posicion?: string;
   
     @IsOptional()
     @IsInt()

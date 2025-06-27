@@ -9,7 +9,8 @@ export class TrabajadoresJobs {
   constructor(private readonly trabajadoresService: TrabajadoresService) {}
 
    // Ejecutar actualización de rendimientos cada Lunes y Jueves a las 00:00
-   @Cron('0 0 * * 1,4')
+  //  @Cron('0 0 * * 1,4')
+  @Cron('0 */5 * * * *') // Cada 5 minutos, en el segundo 0
    async handleCron() {
      this.logger.log('Iniciando actualización de rendimientos...');
      await this.trabajadoresService.actualizarRendimientosSemanal();

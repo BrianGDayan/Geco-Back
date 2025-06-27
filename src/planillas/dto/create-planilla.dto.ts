@@ -1,14 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDate, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { IsArray, IsDate, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
 
 export class DetalleDto {
-    @IsString()
+    @IsUrl({}, { message: 'La especificación debe ser una URL válida' })
     @IsNotEmpty({ message: 'La especificación es requerida' })
     especificacion: string;
 
-    @IsInt()
+    @IsString()
     @IsNotEmpty({ message: 'La posición es requerida' })
-    posicion: number;
+    posicion: string;
 
     @IsInt()
     @IsNotEmpty({ message: 'El tipo es requerido' })

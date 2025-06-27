@@ -33,9 +33,11 @@ export class PlanillasService {
                 rendimiento_global_empaquetado_ayudante: true,
                 elemento: {
                     select: {
+                        id_elemento: true,
                         nombre_elemento: true,
                         detalle: {
                             select: {
+                                id_detalle: true,
                                 posicion: true,
                                 especificacion: true,
                                 tipo: true,
@@ -50,6 +52,8 @@ export class PlanillasService {
                                     where: { id_tarea: idTarea }, // Filtra por tarea
                                     select: {
                                         id_detalle_tarea: true,
+                                        cantidad_acumulada: true,
+                                        completado: true,
                                         tarea: { select: { nombre_tarea: true } }, // Nombre de la tarea
                                         registro: {
                                             select: {
@@ -188,68 +192,70 @@ export class PlanillasService {
         };
     }
 
-    // Método para actualizar un detalle específico
-    async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto) {
+   // Método para actualizar un detalle específico
+    async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto & { cantidadTotal?: number }) {
         return this.prisma.$transaction(async (prisma) => {
-            // Obtener detalle actual con su elemento
+            // 1) Obtener el detalle actual
             const detalleActual = await prisma.detalle.findUnique({
             where: { id_detalle: idDetalle },
-            include: { elemento: true }
             });
-
             if (!detalleActual) {
             throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
             }
 
-            // Calcular nueva cantidad_total si cambian los componentes
-            let cantidadTotal = detalleActual.cantidad_total;
+            // 2) Desestructuro sólo los campos que pueden venir en el DTO
             const {
-            cantidadUnitaria,
-            nroElementos,
-            nroIguales,
+            especificacion,
+            posicion,
+            tipo,
             medidaDiametro,
             longitudCorte,
-            posicion,
-            ...restoDto
+            cantidadTotal,
             } = updateDetalleDto;
 
-            const nuevaCantidadUnitaria = cantidadUnitaria ?? detalleActual.cantidad_unitaria;
-            const nuevoNroElementos = nroElementos ?? detalleActual.nro_elementos;
-            const nuevoNroIguales = nroIguales ?? detalleActual.nro_iguales;
+            // 3) Detectar campos modificados
+            const camposModificados: string[] = [];
+            if (especificacion   !== undefined && especificacion   !== detalleActual.especificacion)   camposModificados.push('especificacion');
+            if (posicion         !== undefined && posicion         !== detalleActual.posicion)         camposModificados.push('posicion');
+            if (tipo             !== undefined && tipo             !== detalleActual.tipo)             camposModificados.push('tipo');
+            if (medidaDiametro   !== undefined && medidaDiametro   !== detalleActual.medida_diametro)  camposModificados.push('medida_diametro');
+            if (longitudCorte    !== undefined && longitudCorte    !== detalleActual.longitud_corte)   camposModificados.push('longitud_corte');
+            if (cantidadTotal    !== undefined && cantidadTotal    !== detalleActual.cantidad_total)   camposModificados.push('cantidad_total');
 
-            if ([cantidadUnitaria, nroElementos, nroIguales].some(v => v !== undefined)) {
-            if ([nuevaCantidadUnitaria, nuevoNroElementos, nuevoNroIguales].some(v => v <= 0)) {
-                throw new BadRequestException('Los valores deben ser mayores a 0');
-            }
-            cantidadTotal = nuevaCantidadUnitaria * nuevoNroElementos * nuevoNroIguales;
-            }
+            // 4) Armar objeto data sólo con campos enviados
+            const dataToUpdate: any = { campos_modificados: camposModificados };
+            if (especificacion !== undefined)  dataToUpdate.especificacion    = especificacion;
+            if (posicion       !== undefined)  dataToUpdate.posicion          = posicion.toString();
+            if (tipo           !== undefined)  dataToUpdate.tipo              = tipo;
+            if (medidaDiametro !== undefined)  dataToUpdate.medida_diametro  = medidaDiametro;
+            if (longitudCorte  !== undefined)  dataToUpdate.longitud_corte   = longitudCorte;
+            if (cantidadTotal  !== undefined)  dataToUpdate.cantidad_total   = cantidadTotal;
 
-            // Actualizar el detalle
+            // 5) Ejecutar update en BD
             const detalleActualizado = await prisma.detalle.update({
             where: { id_detalle: idDetalle },
-            data: {
-                ...restoDto,
-                medida_diametro: medidaDiametro ?? detalleActual.medida_diametro,
-                longitud_corte: longitudCorte ?? detalleActual.longitud_corte,
-                cantidad_unitaria: nuevaCantidadUnitaria,
-                nro_elementos: nuevoNroElementos,
-                nro_iguales: nuevoNroIguales,
-                cantidad_total: cantidadTotal,
-                posicion: posicion?.toString() ?? detalleActual.posicion,
-            },
-            include: { elemento: true },
-            });
-
-            // Incrementar revisión en la planilla
-            await prisma.planilla.update({
-            where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
-            data: { revision: { increment: 1 } },
+            data: dataToUpdate,
             });
 
             return detalleActualizado;
         });
-    }
+        }
 
+    // Método para actualizar múltiples detalles y actualizar revisión
+    async updateDetallesBatch(nroPlanilla: string, updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]) {
+    return this.prisma.$transaction(async (prisma) => {
+        // Reutilizamos updateDetalle para cada uno
+        for (const { idDetalle, updateDetalleDto } of updates) {
+        await this.updateDetalle(idDetalle, updateDetalleDto);
+        }
+        // Incrementa revision
+        const planilla = await prisma.planilla.update({
+        where: { nro_planilla: nroPlanilla },
+        data: { revision: { increment: 1 } },
+        });
+        return planilla;
+    });
+    }
 
     // Método para eliminar una planilla junto con sus elementos, detalles, detlle_tarea y registros asociados
     async deletePlanilla(nroPlanilla: string) {

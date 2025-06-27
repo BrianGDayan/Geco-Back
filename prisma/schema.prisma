@@ -20,6 +20,7 @@ model detalle {
   id_elemento       Int
   progreso          Int        @default(0)
   especificacion    String
+  campos_modificados Json      @default("[]") 
   elemento          elemento   @relation(fields: [id_elemento], references: [id_elemento], onDelete: Cascade, onUpdate: NoAction, map: "id_elemento")
   diametro          diametro   @relation(fields: [medida_diametro], references: [medida_diametro], onDelete: NoAction, onUpdate: NoAction, map: "medida_diametro")
   detalle_tarea    detalle_tarea[]

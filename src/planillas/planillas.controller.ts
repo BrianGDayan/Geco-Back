@@ -67,12 +67,25 @@ export class PlanillasController {
         return res.status(HttpStatus.CREATED).json(planilla);
     }
 
+    
+
     // Endpoint para modificar un detalle de planilla
     @Patch('detalles/:idDetalle')
     @Roles(UserRole.ADMIN)
     async updateDetalle(@Param('idDetalle', ParseIntPipe) idDetalle: number, @Body() updateDetalleDto: UpdateDetalleDto) {
         return this.planillasService.updateDetalle(idDetalle, updateDetalleDto);
     }
+
+    // Endpoint para actualizar múltiples detalles y subir revision en 1
+    @Patch(':nroPlanilla/detalles/batch')
+    @Roles(UserRole.ADMIN)
+    async updateDetallesBatch(
+        @Param('nroPlanilla') nroPlanilla: string,
+        @Body() body: { updates: { idDetalle: number; dto: UpdateDetalleDto }[] }
+    ) {
+        return this.planillasService.updateDetallesBatch(nroPlanilla, body.updates);
+    }
+    
 
     // Endpoint para eliminar una planilla
     @Delete(':nroPlanilla')

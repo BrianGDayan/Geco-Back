@@ -81,7 +81,7 @@ export class PlanillasController {
     @Roles(UserRole.ADMIN)
     async updateDetallesBatch(
         @Param('nroPlanilla') nroPlanilla: string,
-        @Body() body: { updates: { idDetalle: number; dto: UpdateDetalleDto }[] }
+        @Body() body: { updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[] }
     ) {
         return this.planillasService.updateDetallesBatch(nroPlanilla, body.updates);
     }

@@ -23,13 +23,5 @@ export class UpdateDetalleDto {
   
     @ValidateIf(o => o.cantidadUnitaria !== undefined)
     @IsInt()
-    cantidadUnitaria?: number;
-  
-    @ValidateIf(o => o.nroElementos !== undefined)
-    @IsInt()
-    nroElementos?: number;
-  
-    @ValidateIf(o => o.nroIguales !== undefined)
-    @IsInt()
-    nroIguales?: number;
+    cantidadTotal?: number;
 }

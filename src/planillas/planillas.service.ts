@@ -48,6 +48,7 @@ export class PlanillasService {
                                 nro_iguales: true,
                                 cantidad_total: true,
                                 progreso: true,
+                                campos_modificados: true,
                                 detalle_tarea: {
                                     where: { id_tarea: idTarea }, // Filtra por tarea
                                     select: {
@@ -192,70 +193,84 @@ export class PlanillasService {
         };
     }
 
-   // Método para actualizar un detalle específico
+    // Método para actualizar un detalle específico
     async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto & { cantidadTotal?: number }) {
-        return this.prisma.$transaction(async (prisma) => {
-            // 1) Obtener el detalle actual
-            const detalleActual = await prisma.detalle.findUnique({
-            where: { id_detalle: idDetalle },
-            });
-            if (!detalleActual) {
-            throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
-            }
-
-            // 2) Desestructuro sólo los campos que pueden venir en el DTO
-            const {
-            especificacion,
-            posicion,
-            tipo,
-            medidaDiametro,
-            longitudCorte,
-            cantidadTotal,
-            } = updateDetalleDto;
-
-            // 3) Detectar campos modificados
-            const camposModificados: string[] = [];
-            if (especificacion   !== undefined && especificacion   !== detalleActual.especificacion)   camposModificados.push('especificacion');
-            if (posicion         !== undefined && posicion         !== detalleActual.posicion)         camposModificados.push('posicion');
-            if (tipo             !== undefined && tipo             !== detalleActual.tipo)             camposModificados.push('tipo');
-            if (medidaDiametro   !== undefined && medidaDiametro   !== detalleActual.medida_diametro)  camposModificados.push('medida_diametro');
-            if (longitudCorte    !== undefined && longitudCorte    !== detalleActual.longitud_corte)   camposModificados.push('longitud_corte');
-            if (cantidadTotal    !== undefined && cantidadTotal    !== detalleActual.cantidad_total)   camposModificados.push('cantidad_total');
-
-            // 4) Armar objeto data sólo con campos enviados
-            const dataToUpdate: any = { campos_modificados: camposModificados };
-            if (especificacion !== undefined)  dataToUpdate.especificacion    = especificacion;
-            if (posicion       !== undefined)  dataToUpdate.posicion          = posicion.toString();
-            if (tipo           !== undefined)  dataToUpdate.tipo              = tipo;
-            if (medidaDiametro !== undefined)  dataToUpdate.medida_diametro  = medidaDiametro;
-            if (longitudCorte  !== undefined)  dataToUpdate.longitud_corte   = longitudCorte;
-            if (cantidadTotal  !== undefined)  dataToUpdate.cantidad_total   = cantidadTotal;
-
-            // 5) Ejecutar update en BD
-            const detalleActualizado = await prisma.detalle.update({
-            where: { id_detalle: idDetalle },
-            data: dataToUpdate,
-            });
-
-            return detalleActualizado;
+    return this.prisma.$transaction(async (prisma) => {
+        // 1) Obtener el detalle actual con campos_modificados
+        const detalleActual = await prisma.detalle.findUnique({
+        where: { id_detalle: idDetalle },
         });
+
+        if (!detalleActual) {
+        throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
         }
 
-    // Método para actualizar múltiples detalles y actualizar revisión
-    async updateDetallesBatch(nroPlanilla: string, updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]) {
+        // 2) Extraer valores posibles del DTO
+        const {
+        especificacion,
+        posicion,
+        tipo,
+        medidaDiametro,
+        longitudCorte,
+        cantidadTotal,
+        } = updateDetalleDto;
+
+        // 3) Detectar cuáles campos cambian comparando con el actual
+        const nuevosModificados: string[] = [];
+        if (especificacion   !== undefined && especificacion   !== detalleActual.especificacion)   nuevosModificados.push('especificacion');
+        if (posicion         !== undefined && posicion         !== detalleActual.posicion)         nuevosModificados.push('posicion');
+        if (tipo             !== undefined && tipo             !== detalleActual.tipo)             nuevosModificados.push('tipo');
+        if (medidaDiametro   !== undefined && medidaDiametro   !== detalleActual.medida_diametro)  nuevosModificados.push('medida_diametro');
+        if (longitudCorte    !== undefined && longitudCorte    !== detalleActual.longitud_corte)   nuevosModificados.push('longitud_corte');
+        if (cantidadTotal    !== undefined && cantidadTotal    !== detalleActual.cantidad_total)   nuevosModificados.push('cantidad_total');
+
+        // 4) Recuperar previos y unir con nuevos
+        const camposModificadosPrevios: string[] = Array.isArray(detalleActual.campos_modificados)
+        ? (detalleActual.campos_modificados as string[])
+        : [];
+
+        const camposModificados = Array.from(new Set([...camposModificadosPrevios, ...nuevosModificados]));
+
+        // 5) Armar data solo con lo que efectivamente cambió
+        const dataToUpdate: any = { campos_modificados: camposModificados };
+
+        if (especificacion !== undefined)  dataToUpdate.especificacion    = especificacion;
+        if (posicion       !== undefined)  dataToUpdate.posicion          = posicion;
+        if (tipo           !== undefined)  dataToUpdate.tipo              = tipo;
+        if (medidaDiametro !== undefined)  dataToUpdate.medida_diametro   = medidaDiametro;
+        if (longitudCorte  !== undefined)  dataToUpdate.longitud_corte    = longitudCorte;
+        if (cantidadTotal  !== undefined)  dataToUpdate.cantidad_total    = cantidadTotal;
+
+        // 6) Actualizar en BD
+        const detalleActualizado = await prisma.detalle.update({
+        where: { id_detalle: idDetalle },
+        data: dataToUpdate,
+        });
+
+        return detalleActualizado;
+    });
+    }
+
+    // Método para múltiples detalles con incremento de revisión
+    async updateDetallesBatch(
+    nroPlanilla: string,
+    updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]
+    ) {
     return this.prisma.$transaction(async (prisma) => {
-        // Reutilizamos updateDetalle para cada uno
         for (const { idDetalle, updateDetalleDto } of updates) {
         await this.updateDetalle(idDetalle, updateDetalleDto);
         }
-        // Incrementa revision
+
+        // Incrementa revisión de la planilla
         const planilla = await prisma.planilla.update({
         where: { nro_planilla: nroPlanilla },
         data: { revision: { increment: 1 } },
         });
+
         return planilla;
     });
     }
+
 
     // Método para eliminar una planilla junto con sus elementos, detalles, detlle_tarea y registros asociados
     async deletePlanilla(nroPlanilla: string) {

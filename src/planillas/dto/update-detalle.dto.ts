@@ -2,7 +2,7 @@ import { IsInt, IsNumber, IsOptional, IsString, IsUrl, ValidateIf } from 'class-
 
 export class UpdateDetalleDto {
     @IsOptional()
-    @IsUrl({}, { message: 'La especificación debe ser una URL válida' })
+    @IsString()
     especificacion?: string;
   
     @IsOptional()

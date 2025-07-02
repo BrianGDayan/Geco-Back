@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { IsArray, IsDate, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
 
 export class DetalleDto {
-    @IsUrl({}, { message: 'La especificación debe ser una URL válida' })
+    @IsString()
     @IsNotEmpty({ message: 'La especificación es requerida' })
     especificacion: string;
 

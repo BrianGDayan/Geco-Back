@@ -7,17 +7,18 @@ export class RendimientoService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  // Recalcular rendimientos globales de todas las planillas en progreso
   async actualizarRendimientosGlobales() {
     try {
       this.logger.log('Iniciando actualización de rendimientos globales...');
 
-      // Obtener todas las planillas que no están completas (progreso < 100)
+      // Buscar planillas en progreso
       const planillas = await this.prisma.planilla.findMany({
         where: { progreso: { lt: 100 } },
         select: { nro_planilla: true },
       });
 
-      // Iterar sobre cada planilla y actualizar sus rendimientos
+      // Actualizar rendimientos planilla por planilla
       for (const planilla of planillas) {
         await this.actualizarRendimientosPlanilla(planilla.nro_planilla);
       }
@@ -29,6 +30,7 @@ export class RendimientoService {
     }
   }
 
+  // Recalcular rendimientos globales y peso total de una planilla específica
   public async actualizarRendimientosPlanilla(nroPlanilla: string) {
     const tareas = [
       { tipo: 'corte', id: 1 },
@@ -36,7 +38,7 @@ export class RendimientoService {
       { tipo: 'empaquetado', id: 3 },
     ];
 
-    // Calcular promedio de rendimientos
+    // Calcular promedios de rendimientos
     const resultados = await Promise.all(
       tareas.map(async ({ tipo, id }) => {
         const aggregations = await this.prisma.registro.aggregate({
@@ -53,21 +55,26 @@ export class RendimientoService {
             rendimiento_ayudante: true,
           },
         });
+
         return {
           tipo,
-          trabajador: aggregations._avg.rendimiento_trabajador || 0,
-          ayudante: aggregations._avg.rendimiento_ayudante || 0,
+          trabajador: aggregations._avg.rendimiento_trabajador ?? 0,
+          ayudante: aggregations._avg.rendimiento_ayudante ?? 0,
         };
       })
     );
 
-    const rendimientos = resultados.reduce((acc, curr) => ({
-      ...acc,
-      [`rendimiento_global_${curr.tipo}_trabajador`]: curr.trabajador,
-      [`rendimiento_global_${curr.tipo}_ayudante`]: curr.ayudante,
-    }), {});
+    // Construir objeto de rendimientos para persistir
+    const rendimientos = resultados.reduce(
+      (acc, curr) => ({
+        ...acc,
+        [`rendimiento_global_${curr.tipo}_trabajador`]: curr.trabajador,
+        [`rendimiento_global_${curr.tipo}_ayudante`]: curr.ayudante,
+      }),
+      {}
+    );
 
-    // Calcular peso total y pesos por diámetro
+    // Calcular peso total y pesos agrupados por diámetro
     const registros = await this.prisma.registro.findMany({
       where: {
         detalle_tarea: {
@@ -104,11 +111,10 @@ export class RendimientoService {
     }
 
     const pesos_diametro = Object.entries(pesosPorDiametro)
-    .map(([d, p]) => ({ diametro: Number(d), peso: p }))
-    .sort((a, b) => a.diametro - b.diametro);
+      .map(([d, p]) => ({ diametro: Number(d), peso: p }))
+      .sort((a, b) => a.diametro - b.diametro);
 
-
-    // Actualizar la planilla
+    // Actualizar planilla con rendimientos y pesos calculados, asegurando evitar nulls
     await this.prisma.planilla.update({
       where: { nro_planilla: nroPlanilla },
       data: {
@@ -119,9 +125,16 @@ export class RendimientoService {
     });
   }
 
+  // Obtener rendimientos promedio por obra, recalculando si detecta nulls
   async calcularRendimientosPorObra(obra: string) {
+    const hasNull = (avg: Record<string, number | null> | null) =>
+      !avg || Object.values(avg).some((v) => v === null);
+
+    let avgResult: Record<string, number | null> | null;
+
     if (obra === 'todas') {
-      const resultado = await this.prisma.planilla.aggregate({
+      // Calcular promedios de todas las planillas
+      const agregado = await this.prisma.planilla.aggregate({
         _avg: {
           rendimiento_global_corte_trabajador: true,
           rendimiento_global_doblado_trabajador: true,
@@ -131,21 +144,72 @@ export class RendimientoService {
           rendimiento_global_empaquetado_ayudante: true,
         },
       });
-      return resultado._avg;
+      avgResult = agregado._avg;
+
+      if (hasNull(avgResult)) {
+        // Recalcular rendimientos si se detectan valores nulos
+        await this.actualizarRendimientosGlobales();
+        const reAgregado = await this.prisma.planilla.aggregate({
+          _avg: {
+            rendimiento_global_corte_trabajador: true,
+            rendimiento_global_doblado_trabajador: true,
+            rendimiento_global_empaquetado_trabajador: true,
+            rendimiento_global_corte_ayudante: true,
+            rendimiento_global_doblado_ayudante: true,
+            rendimiento_global_empaquetado_ayudante: true,
+          },
+        });
+        avgResult = reAgregado._avg;
+      }
+    } else {
+      // Calcular promedios agrupando por obra específica
+      const grouped = await this.prisma.planilla.groupBy({
+        by: ['obra'],
+        where: { obra },
+        _avg: {
+          rendimiento_global_corte_trabajador: true,
+          rendimiento_global_doblado_trabajador: true,
+          rendimiento_global_empaquetado_trabajador: true,
+          rendimiento_global_corte_ayudante: true,
+          rendimiento_global_doblado_ayudante: true,
+          rendimiento_global_empaquetado_ayudante: true,
+        },
+      });
+      avgResult = grouped[0]?._avg || null;
+
+      if (hasNull(avgResult)) {
+        // Recalcular rendimientos de todas las planillas de esa obra
+        const planillas = await this.prisma.planilla.findMany({
+          where: { obra },
+          select: { nro_planilla: true },
+        });
+        for (const { nro_planilla } of planillas) {
+          await this.actualizarRendimientosPlanilla(nro_planilla);
+        }
+        const reGrouped = await this.prisma.planilla.groupBy({
+          by: ['obra'],
+          where: { obra },
+          _avg: {
+            rendimiento_global_corte_trabajador: true,
+            rendimiento_global_doblado_trabajador: true,
+            rendimiento_global_empaquetado_trabajador: true,
+            rendimiento_global_corte_ayudante: true,
+            rendimiento_global_doblado_ayudante: true,
+            rendimiento_global_empaquetado_ayudante: true,
+          },
+        });
+        avgResult = reGrouped[0]?._avg || null;
+      }
     }
 
-    const resultado = await this.prisma.planilla.groupBy({
-      by: ['obra'],
-      where: { obra },
-      _avg: {
-        rendimiento_global_corte_trabajador: true,
-        rendimiento_global_doblado_trabajador: true,
-        rendimiento_global_empaquetado_trabajador: true,
-        rendimiento_global_corte_ayudante: true,
-        rendimiento_global_doblado_ayudante: true,
-        rendimiento_global_empaquetado_ayudante: true,
-      },
-    });
-    return resultado[0]?._avg || null;
+    // Retornar promedios asegurando valor cero si persisten nulos
+    return {
+      rendimiento_global_corte_trabajador: avgResult?.rendimiento_global_corte_trabajador ?? 0,
+      rendimiento_global_doblado_trabajador: avgResult?.rendimiento_global_doblado_trabajador ?? 0,
+      rendimiento_global_empaquetado_trabajador: avgResult?.rendimiento_global_empaquetado_trabajador ?? 0,
+      rendimiento_global_corte_ayudante: avgResult?.rendimiento_global_corte_ayudante ?? 0,
+      rendimiento_global_doblado_ayudante: avgResult?.rendimiento_global_doblado_ayudante ?? 0,
+      rendimiento_global_empaquetado_ayudante: avgResult?.rendimiento_global_empaquetado_ayudante ?? 0,
+    };
   }
 }

@@ -14,95 +14,100 @@ export class RegistrosService {
   ) {}
 
   async createRegistro(createRegistroDto: CreateRegistroDto, idUsuario: number) {
-    return this.prisma.$transaction(async (prisma) => {
-      // Buscar trabajador principal y ayudante
-      const trabajador = await prisma.trabajador.findFirst({ where: { nombre: createRegistroDto.nombreTrabajador } });
-      if (!trabajador) throw new NotFoundException(`Trabajador con nombre ${createRegistroDto.nombreTrabajador} no encontrado.`);
+  // Ejecutar creación de registro y cálculos de rendimiento en transacción
+  const registro = await this.prisma.$transaction(async (prisma) => {
+    // Buscar trabajador principal y ayudante
+    const trabajador = await prisma.trabajador.findFirst({ where: { nombre: createRegistroDto.nombreTrabajador } });
+    if (!trabajador) throw new NotFoundException(`Trabajador con nombre ${createRegistroDto.nombreTrabajador} no encontrado.`);
 
-      let ayudanteId: number | null = null;
-      if (createRegistroDto.nombreAyudante) {
-        const ayudante = await prisma.trabajador.findFirst({ where: { nombre: createRegistroDto.nombreAyudante } });
-        if (!ayudante) throw new NotFoundException(`Trabajador (ayudante) con nombre ${createRegistroDto.nombreAyudante} no encontrado.`);
-        ayudanteId = ayudante.id_trabajador;
-      }
+    let ayudanteId: number | null = null;
+    if (createRegistroDto.nombreAyudante) {
+      const ayudante = await prisma.trabajador.findFirst({ where: { nombre: createRegistroDto.nombreAyudante } });
+      if (!ayudante) throw new NotFoundException(`Trabajador (ayudante) con nombre ${createRegistroDto.nombreAyudante} no encontrado.`);
+      ayudanteId = ayudante.id_trabajador;
+    }
 
-      // Obtener detalle e incluir nro_planilla
-      const detalleRecord = await prisma.detalle.findUnique({
-        where: { id_detalle: createRegistroDto.idDetalle },
-        include: { elemento: { select: { nro_planilla: true } } }
-      });
-      if (!detalleRecord) throw new NotFoundException(`Detalle con id ${createRegistroDto.idDetalle} no encontrado.`);
+    // Obtener detalle e incluir nro_planilla
+    const detalleRecord = await prisma.detalle.findUnique({
+      where: { id_detalle: createRegistroDto.idDetalle },
+      include: { elemento: { select: { nro_planilla: true } } }
+    });
+    if (!detalleRecord) throw new NotFoundException(`Detalle con id ${createRegistroDto.idDetalle} no encontrado.`);
 
-      // Verificar acumulado vs total
-      let detalleTarea = await prisma.detalle_tarea.findFirst({
-        where: { id_detalle: createRegistroDto.idDetalle, id_tarea: createRegistroDto.idTarea }
-      });
-      const acumuladoActual = detalleTarea?.cantidad_acumulada || 0;
-      if (acumuladoActual + createRegistroDto.cantidad > detalleRecord.cantidad_total) {
-        throw new BadRequestException(`La cantidad ingresada supera el total permitido (${detalleRecord.cantidad_total}).`);
-      }
+    // Verificar acumulado vs total permitido
+    let detalleTarea = await prisma.detalle_tarea.findFirst({
+      where: { id_detalle: createRegistroDto.idDetalle, id_tarea: createRegistroDto.idTarea }
+    });
+    const acumuladoActual = detalleTarea?.cantidad_acumulada || 0;
+    const nuevoAcumulado = acumuladoActual + createRegistroDto.cantidad;
 
-      // Crear o actualizar detalle_tarea
-      if (!detalleTarea) {
-        detalleTarea = await prisma.detalle_tarea.create({
-          data: {
-            id_detalle: createRegistroDto.idDetalle,
-            id_tarea: createRegistroDto.idTarea,
-            cantidad_acumulada: createRegistroDto.cantidad,
-            completado: createRegistroDto.cantidad === detalleRecord.cantidad_total,
-          }
-        });
-      } else {
-        detalleTarea = await prisma.detalle_tarea.update({
-          where: { id_detalle_tarea: detalleTarea.id_detalle_tarea },
-          data: {
-            cantidad_acumulada: { increment: createRegistroDto.cantidad },
-            completado: acumuladoActual + createRegistroDto.cantidad === detalleRecord.cantidad_total,
-          }
-        });
-      }
+    if (nuevoAcumulado > detalleRecord.cantidad_total) {
+      throw new BadRequestException(`La cantidad ingresada supera el total permitido (${detalleRecord.cantidad_total}).`);
+    }
 
-      if (detalleTarea.completado) {
-        await this.progresoService.actualizarProgresos(createRegistroDto.idDetalle);
-      }
-
-      // Calcular peso y rendimientos
-      const diametroRecord = await prisma.diametro.findUnique({ where: { medida_diametro: detalleRecord.medida_diametro } });
-      if (!diametroRecord) throw new NotFoundException(`Diametro con medida ${detalleRecord.medida_diametro} no encontrado.`);
-
-      const pesoParcial = createRegistroDto.cantidad * diametroRecord.peso_por_metro;
-      const rendimientoTrabajador = pesoParcial > 0
-        ? createRegistroDto.horasTrabajador / pesoParcial
-        : 0;
-      const horasAyu = createRegistroDto.horasAyudante ?? 0;
-      const rendimientoAyudante = pesoParcial > 0
-        ? horasAyu / pesoParcial
-        : 0;
-
-      // Crear registro
-      const registro = await prisma.registro.create({
+    // Crear o actualizar detalle_tarea
+    if (!detalleTarea) {
+      detalleTarea = await prisma.detalle_tarea.create({
         data: {
-          id_detalle_tarea: detalleTarea.id_detalle_tarea,
-          fecha: new Date(),
-          cantidad: createRegistroDto.cantidad,
-          horas_trabajador: createRegistroDto.horasTrabajador,
-          horas_ayudante:   horasAyu,
-          rendimiento_trabajador: rendimientoTrabajador,
-          rendimiento_ayudante:   rendimientoAyudante,
-          id_usuario:       idUsuario,
-          id_trabajador:    trabajador.id_trabajador,
-          id_ayudante:      ayudanteId,
+          id_detalle: createRegistroDto.idDetalle,
+          id_tarea: createRegistroDto.idTarea,
+          cantidad_acumulada: nuevoAcumulado,
+          completado: nuevoAcumulado >= detalleRecord.cantidad_total,
         }
       });
+    } else {
+      detalleTarea = await prisma.detalle_tarea.update({
+        where: { id_detalle_tarea: detalleTarea.id_detalle_tarea },
+        data: {
+          cantidad_acumulada: nuevoAcumulado,
+          completado: nuevoAcumulado >= detalleRecord.cantidad_total,
+        }
+      });
+    }
 
-      // Recalcular solo esta planilla inmediatamente
-      await this.rendimientoService.actualizarRendimientosPlanilla(
-        detalleRecord.elemento.nro_planilla
-      );
+    // Obtener peso y calcular rendimientos
+    const diametroRecord = await prisma.diametro.findUnique({ where: { medida_diametro: detalleRecord.medida_diametro } });
+    if (!diametroRecord) throw new NotFoundException(`Diametro con medida ${detalleRecord.medida_diametro} no encontrado.`);
 
-      return registro;
+    const pesoParcial = createRegistroDto.cantidad * diametroRecord.peso_por_metro;
+    const rendimientoTrabajador = pesoParcial > 0
+      ? createRegistroDto.horasTrabajador / pesoParcial
+      : 0;
+    const horasAyu = createRegistroDto.horasAyudante ?? 0;
+    const rendimientoAyudante = pesoParcial > 0
+      ? horasAyu / pesoParcial
+      : 0;
+
+    // Crear registro de producción
+    const registroCreado = await prisma.registro.create({
+      data: {
+        id_detalle_tarea: detalleTarea.id_detalle_tarea,
+        fecha: new Date(),
+        cantidad: createRegistroDto.cantidad,
+        horas_trabajador: createRegistroDto.horasTrabajador,
+        horas_ayudante: horasAyu,
+        rendimiento_trabajador: rendimientoTrabajador,
+        rendimiento_ayudante: rendimientoAyudante,
+        id_usuario: idUsuario,
+        id_trabajador: trabajador.id_trabajador,
+        id_ayudante: ayudanteId,
+      }
     });
+
+    // Recalcular rendimientos de la planilla asociada
+    await this.rendimientoService.actualizarRendimientosPlanilla(
+      detalleRecord.elemento.nro_planilla
+    );
+
+    return registroCreado;
+  });
+
+  // Fuera de la transacción, ahora sí actualizar progresos
+  await this.progresoService.actualizarProgresos(createRegistroDto.idDetalle);
+
+  return registro;
   }
+
 
   async updateRegistro(idRegistro: number, updateRegistroDto: UpdateRegistroDto) {
     return this.prisma.$transaction(async (prisma) => {

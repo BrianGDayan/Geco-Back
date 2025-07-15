@@ -8,8 +8,16 @@ export class TrabajadoresService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async actualizarRendimientosSemanal() {
+   async findAllActivos(): Promise<Pick<trabajador, 'id_trabajador' | 'nombre'>[]> {
+    // Obtener todos los trabajadores activos ordenados de forma ascendente por nombre
+    return this.prisma.trabajador.findMany({
+      where: { activo: true },
+      select: { id_trabajador: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
 
+  async actualizarRendimientosSemanal() {
     // Obtener todos los trabajadores activos
     const trabajadores = await this.prisma.trabajador.findMany({
       select: { id_trabajador: true },

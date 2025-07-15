@@ -38,9 +38,6 @@ export default tseslint.config(
       ],
     },
   },
-  // Deshabilita reglas de ESLint que entran en conflicto con Prettier
-  eslintConfigPrettier,
-  // Agrega Prettier como regla de ESLint
   {
     plugins: {
       prettier,

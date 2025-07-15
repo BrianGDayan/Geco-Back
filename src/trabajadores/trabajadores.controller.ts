@@ -11,6 +11,13 @@ import { UserRole } from 'src/auth/type/auth.types';
 export class TrabajadoresController {
   constructor(private readonly trabajadoresJobs: TrabajadoresJobs, private readonly trabajadoresService: TrabajadoresService) {}
 
+  // Endpoint para obtener todos los trabajadores activos
+  @Get('activos')
+  @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
+  async getActivos() {
+    return this.trabajadoresService.findAllActivos();
+  }
+  
   // Endpoint para obtener el rendimiento de los trabajadores por tarea
   @Get('rendimiento-por-tarea')
   @Roles(UserRole.ADMIN)

@@ -43,6 +43,14 @@ export class PlanillasController {
         return this.rendimientoService.calcularRendimientosPorObra(obra);
     }
 
+       // Endpoint para obtener todos los diametros
+    @Get('diametros')
+    @Roles(UserRole.ADMIN)
+    async getDiametros() {
+         console.log('>>>> Entré al handler diametros');
+        return this.planillasService.findAllDiametros();
+    }
+
     // Endpoint para obtener una planilla por el nro de planilla
     @Get(':nroPlanilla')
     @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
@@ -51,6 +59,15 @@ export class PlanillasController {
             throw new BadRequestException('Tarea inválida');
         }
         return this.planillasService.getPlanillaByNro(nroPlanilla, idTarea);
+    }
+
+    // Endpoint para obtener una planilla con todos sus registros y tareas
+    @Get(':nroPlanilla/completa')
+    @Roles(UserRole.ADMIN, UserRole.ENCARGADO)
+    async getPlanillaCompleta(
+        @Param('nroPlanilla') nroPlanilla: string,
+    ) {
+        return this.planillasService.getPlanillaCompleta(nroPlanilla);
     }
 
     // Endpoint para crear una planilla

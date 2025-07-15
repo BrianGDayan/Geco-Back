@@ -78,6 +78,77 @@ export class PlanillasService {
             }
         });
     }
+
+    //Obtener una planilla completa con todos sus detalles y tareas
+    async getPlanillaCompleta(nroPlanilla: string) {
+        return this.prisma.planilla.findUnique({
+        where: { nro_planilla: nroPlanilla },
+        select: {
+            nro_planilla: true,
+            obra: true,
+            nro_plano: true,
+            sector: true,
+            encargado_elaborar: true,
+            encargado_revisar: true,
+            encargado_aprobar: true,
+            fecha: true,
+            revision: true,
+            item: true,
+            progreso: true,
+            peso_total: true,
+            pesos_diametro: true,
+            rendimiento_global_corte_trabajador: true,
+            rendimiento_global_doblado_trabajador: true,
+            rendimiento_global_empaquetado_trabajador: true,
+            rendimiento_global_corte_ayudante: true,
+            rendimiento_global_doblado_ayudante: true,
+            rendimiento_global_empaquetado_ayudante: true,
+            elemento: {
+            select: {
+                id_elemento: true,
+                nombre_elemento: true,
+                detalle: {
+                select: {
+                    id_detalle: true,
+                    posicion: true,
+                    especificacion: true,
+                    tipo: true,
+                    medida_diametro: true,
+                    longitud_corte: true,
+                    cantidad_unitaria: true,
+                    nro_elementos: true,
+                    nro_iguales: true,
+                    cantidad_total: true,
+                    progreso: true,
+                    campos_modificados: true,
+                    detalle_tarea: {
+                    select: {
+                        id_detalle_tarea: true,
+                        cantidad_acumulada: true,
+                        completado: true,
+                        tarea: { select: { nombre_tarea: true } },
+                        registro: {
+                        select: {
+                            id_registro: true,
+                            cantidad: true,
+                            fecha: true,
+                            horas_trabajador: true,
+                            horas_ayudante: true,
+                            rendimiento_trabajador: true,
+                            rendimiento_ayudante: true,
+                            trabajador: { select: { nombre: true } },
+                            ayudante: { select: { nombre: true } },
+                        },
+                        },
+                    },
+                    },
+                },
+                },
+            },
+            },
+        },
+        });
+    }
     
     // Obtener las planillas con un progreso específico (usada para mostrar planillas completadas donde progreso = 100)
     async getPlanillasByProgreso(progreso: number) {
@@ -119,6 +190,13 @@ export class PlanillasService {
         return obras.map(o => o.obra);
     }
 
+    async findAllDiametros(): Promise<{ medida_diametro: number }[]> {
+        const list = await this.prisma.diametro.findMany({
+            select: { medida_diametro: true },
+            orderBy: { medida_diametro: 'asc' },
+        });
+        return list;
+    }
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
         // Crear la planilla junto con sus elementos y detalles

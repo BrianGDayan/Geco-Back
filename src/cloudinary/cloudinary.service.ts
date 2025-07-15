@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { v4 as uuidv4 } from 'uuid'; // 👈 IMPORTANTE
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class CloudinaryService {
@@ -28,5 +28,9 @@ export class CloudinaryService {
       );
       stream.end(buffer);
     });
+  }
+
+  async deleteImage(publicId: string): Promise<any> {
+    return cloudinary.uploader.destroy(publicId);
   }
 }

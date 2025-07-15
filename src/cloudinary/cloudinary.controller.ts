@@ -3,6 +3,7 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  Body,
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -15,13 +16,21 @@ export class CloudinaryController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', { storage: multer.memoryStorage() }))
-  async upload(@UploadedFile() file: Express.Multer.File) {
+  async upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('oldPublicId') oldPublicId?: string,
+  ) {
     if (!file) {
       throw new BadRequestException('Debe enviar un archivo en el campo "file".');
     }
+
+    if (oldPublicId) {
+      await this.cloudinaryService.deleteImage(oldPublicId);
+    }
+
     const result = await this.cloudinaryService.uploadImage(file.buffer);
     return {
-      url:      result.secure_url,
+      url: result.secure_url,
       publicId: result.public_id,
     };
   }

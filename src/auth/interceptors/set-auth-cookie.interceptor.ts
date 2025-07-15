@@ -13,7 +13,7 @@ export class SetAuthCookieInterceptor implements NestInterceptor {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            domain: 'localhost',
+            domain: process.env.COOKIE_DOMAIN || 'localhost',
             maxAge: 2 * 60 * 60 * 1000,
             path: '/',
           });

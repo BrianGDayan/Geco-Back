@@ -30,7 +30,7 @@ async function main() {
   for (const d of diametros) {
   await prisma.diametro.upsert({
       where: { medida_diametro: d.medida_diametro },
-      update: { peso_por_metro: d.peso_por_metro }, // actualiza por si cambia
+      update: { peso_por_metro: d.peso_por_metro },
       create: {
       medida_diametro: d.medida_diametro,
       peso_por_metro: d.peso_por_metro,

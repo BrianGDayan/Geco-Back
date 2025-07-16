@@ -47,7 +47,6 @@ export class PlanillasController {
     @Get('diametros')
     @Roles(UserRole.ADMIN)
     async getDiametros() {
-         console.log('>>>> Entré al handler diametros');
         return this.planillasService.findAllDiametros();
     }
 

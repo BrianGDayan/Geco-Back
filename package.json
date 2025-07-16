@@ -84,7 +84,7 @@
     "typescript-eslint": "^8.26.0"
   },
   "engines": {
-   "node": ">=20"
+    "node": "20"
   },
   "jest": {
     "moduleFileExtensions": [

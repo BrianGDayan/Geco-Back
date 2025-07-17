@@ -12,8 +12,7 @@ export class SetAuthCookieInterceptor implements NestInterceptor {
           res.cookie('access_token', data.access_token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            domain: process.env.COOKIE_DOMAIN || 'localhost',
+            sameSite: 'none',
             maxAge: 2 * 60 * 60 * 1000,
             path: '/',
           });

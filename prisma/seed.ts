@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  // 1) Tareas
   const tareas = [
     { nombre_tarea: 'Corte' },
     { nombre_tarea: 'Doblado' },
@@ -17,6 +18,7 @@ async function main() {
     });
   }
 
+  // 2) Diámetros
   const diametros = [
     { medida_diametro: 6, peso_por_metro: 0.222 },
     { medida_diametro: 8, peso_por_metro: 0.395 },
@@ -28,19 +30,40 @@ async function main() {
   ];
 
   for (const d of diametros) {
-  await prisma.diametro.upsert({
+    await prisma.diametro.upsert({
       where: { medida_diametro: d.medida_diametro },
       update: { peso_por_metro: d.peso_por_metro },
       create: {
-      medida_diametro: d.medida_diametro,
-      peso_por_metro: d.peso_por_metro,
+        medida_diametro: d.medida_diametro,
+        peso_por_metro: d.peso_por_metro,
       },
-  });
+    });
   }
+
+  // 3) Trabajadores
+  const trabajadores = [
+    'Hipólito Colque',
+    'Gerónimo Aguilar',
+    'Martín Canchi',
+    'Kevin Chávez',
+    'Martín Flores',
+    'Cristian Huanco',
+    'Augusto Maidana',
+  ];
+
+  for (const nombre of trabajadores) {
+    await prisma.trabajador.upsert({
+      where: { nombre },    
+      update: {},
+      create: { nombre },
+    });
+  }
+
 }
 
 main()
-  .catch(e => {
+  .catch((e) => {
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

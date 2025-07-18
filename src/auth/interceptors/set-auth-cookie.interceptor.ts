@@ -13,6 +13,7 @@ export class SetAuthCookieInterceptor implements NestInterceptor {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'none',
+            domain: process.env.COOKIE_DOMAIN || '.up.railway.app',
             maxAge: 2 * 60 * 60 * 1000,
             path: '/',
           });

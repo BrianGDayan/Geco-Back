@@ -199,42 +199,76 @@ export class PlanillasService {
     }
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
-        // Crear la planilla junto con sus elementos y detalles
-        const tareas = [1, 2, 3];
-        return this.prisma.$transaction(async (prisma) => {
-            const planilla = await prisma.planilla.create({
-                data: {
-                    nro_planilla: createPlanillaDto.nroPlanilla,
-                    obra: createPlanillaDto.obra,
-                    nro_plano: createPlanillaDto.nroPlano,
-                    sector: createPlanillaDto.sector,
-                    encargado_elaborar: createPlanillaDto.encargadoElaborar,
-                    encargado_revisar: createPlanillaDto.encargadoRevisar,
-                    encargado_aprobar: createPlanillaDto.encargadoAprobar,
-                    fecha: createPlanillaDto.fecha,
-                    item: createPlanillaDto.item,
-                    id_usuario: idUsuario,
-                    elemento: {
-                        create: createPlanillaDto.elemento.map(elemento => 
-                            this.createElementoData(elemento, tareas)
-                        ),
-                    },
-                },
+    // Crear la planilla junto con sus elementos y detalles en una transacción
+    const tareas = [1, 2, 3];
+    const result = await this.prisma.$transaction(async (prisma) => {
+        // Crear registro inicial de planilla
+        const planilla = await prisma.planilla.create({
+        data: {
+            nro_planilla: createPlanillaDto.nroPlanilla,
+            obra: createPlanillaDto.obra,
+            nro_plano: createPlanillaDto.nroPlano,
+            sector: createPlanillaDto.sector,
+            encargado_elaborar: createPlanillaDto.encargadoElaborar,
+            encargado_revisar: createPlanillaDto.encargadoRevisar,
+            encargado_aprobar: createPlanillaDto.encargadoAprobar,
+            fecha: createPlanillaDto.fecha,
+            item: createPlanillaDto.item,
+            id_usuario: idUsuario,
+            progreso: 0,
+            peso_total: 0,
+            pesos_diametro: [],
+            elemento: {
+            create: createPlanillaDto.elemento.map((elem) =>
+                this.createElementoData(elem, tareas)
+            ),
+            },
+        },
+        include: {
+            elemento: {
+            include: {
+                detalle: {
                 include: {
-                    elemento: {
-                        include: {
-                            detalle: {
-                                include: {
-                                    detalle_tarea: true,
-                                },
-                            },
-                        },
-                    },
+                    diametro: { select: { peso_por_metro: true } },
                 },
-            });
-
-            return planilla;
+                },
+            },
+            },
+        },
         });
+
+        // Calcular peso_total y pesos por diámetro basado en elementos creados
+        const pesosPorDiametro: Record<number, number> = {};
+        let pesoTotal = 0;
+
+        for (const elem of planilla.elemento) {
+        for (const det of elem.detalle) {
+            const cantidadTotal = det.cantidad_total; // Debe venir de createElementoData
+            const pesoMetro = det.diametro.peso_por_metro;
+            const parcial = cantidadTotal * pesoMetro;
+            pesoTotal += parcial;
+            pesosPorDiametro[det.medida_diametro] =
+            (pesosPorDiametro[det.medida_diametro] || 0) + parcial;
+        }
+        }
+
+        const pesos_diametro = Object.entries(pesosPorDiametro)
+        .map(([diam, peso]) => ({ diametro: Number(diam), peso }))
+        .sort((a, b) => a.diametro - b.diametro);
+
+        // Actualizar la planilla con los datos de peso
+        const updated = await prisma.planilla.update({
+        where: { nro_planilla: planilla.nro_planilla },
+        data: {
+            peso_total: pesoTotal,
+            pesos_diametro,
+        },
+        });
+
+        return updated;
+    });
+    // Devolver la planilla actualizada
+    return result;
     }
 
     // Método auxiliar para crear los datos del elemento

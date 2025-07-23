@@ -104,14 +104,6 @@ export class RegistrosService {
     };
   });
 
-  // Actualizar progreso global
-  const progreso = await this.progresoService.actualizarProgresos(createRegistroDto.idDetalle);
-
-  // Si la planilla está completa, recalcular rendimientos globales
-  if (typeof progreso === 'number' && progreso >= 100) {
-    await this.rendimientoService.actualizarRendimientosPlanilla(registro.nroPlanilla);
-  }
-
   return registro.registroCreado;
 }
 

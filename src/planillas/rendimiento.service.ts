@@ -7,7 +7,7 @@ export class RendimientoService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // Calcular rendimientos globales y peso total de una planilla específica
+  // Calcular rendimientos globales de una planilla específica
   public async actualizarRendimientosPlanilla(nroPlanilla: string) {
     // Verificar que la planilla existe
     const planilla = await this.prisma.planilla.findUnique({

@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RendimientoService } from 'src/planillas/rendimiento.service';
 
 @Injectable()
 export class ProgresoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rendimientoService: RendimientoService,
+  ) {}
 
-  async actualizarProgresos(idDetalle: number): Promise<void> {
+  async actualizarProgresos(idDetalle: number): Promise<number> {
     // Contar cuántas tareas están completadas para este detalle
     const tareasCompletadas = await this.prisma.detalle_tarea.count({
       where: { id_detalle: idDetalle, completado: true },
@@ -19,9 +23,7 @@ export class ProgresoService {
       3: 100,
     };
     const progresoDetalle =
-      tareasCompletadas >= 3
-        ? 100
-        : mapProgreso[tareasCompletadas] ?? 0;
+      tareasCompletadas >= 3 ? 100 : mapProgreso[tareasCompletadas] ?? 0;
 
     // Actualizar el detalle con el nuevo progreso
     await this.prisma.detalle.update({
@@ -29,8 +31,7 @@ export class ProgresoService {
       data: { progreso: progresoDetalle },
     });
 
-    // Si no llegó al 100%, no seguir
-    if (progresoDetalle < 100) return;
+    if (progresoDetalle < 100) return progresoDetalle;
 
     // Traer detalle con su elemento
     const detalle = await this.prisma.detalle.findUnique({
@@ -39,7 +40,7 @@ export class ProgresoService {
     });
     if (!detalle || !detalle.elemento) {
       throw new NotFoundException(
-        `Detalle o elemento no encontrado para id_detalle: ${idDetalle}`
+        `Detalle o elemento no encontrado para id_detalle: ${idDetalle}`,
       );
     }
 
@@ -50,41 +51,53 @@ export class ProgresoService {
     });
     if (!elemento) {
       throw new NotFoundException(
-        `Elemento con ID ${detalle.elemento.id_elemento} no encontrado`
+        `Elemento con ID ${detalle.elemento.id_elemento} no encontrado`,
       );
     }
+
     const sumaProgresoDetalles = elemento.detalle.reduce(
       (sum, d) => sum + d.progreso,
-      0
+      0,
     );
     const progresoElemento = elemento.detalle.length
       ? Math.round(sumaProgresoDetalles / elemento.detalle.length)
       : 0;
+
     await this.prisma.elemento.update({
       where: { id_elemento: elemento.id_elemento },
       data: { progreso: progresoElemento },
     });
 
-    // Calcular y actualizar progreso de la planilla
+    // Calcular progreso de la planilla
     const planilla = await this.prisma.planilla.findUnique({
       where: { nro_planilla: detalle.elemento.nro_planilla },
       include: { elemento: true },
     });
     if (!planilla) {
       throw new NotFoundException(
-        `Planilla con nro ${detalle.elemento.nro_planilla} no encontrada`
+        `Planilla con nro ${detalle.elemento.nro_planilla} no encontrada`,
       );
     }
+
     const sumaProgresoElem = planilla.elemento.reduce(
       (sum, e) => sum + e.progreso,
-      0
+      0,
     );
     const progresoPlanilla = planilla.elemento.length
       ? Math.round(sumaProgresoElem / planilla.elemento.length)
       : 0;
+
+    const progresoAnterior = planilla.progreso;
+
     await this.prisma.planilla.update({
       where: { nro_planilla: planilla.nro_planilla },
       data: { progreso: progresoPlanilla },
     });
+
+    if (progresoAnterior < 100 && progresoPlanilla >= 100) {
+      await this.rendimientoService.actualizarRendimientosPlanilla(planilla.nro_planilla);
+    }
+
+    return progresoPlanilla;
   }
 }

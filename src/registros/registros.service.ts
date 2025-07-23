@@ -103,6 +103,7 @@ export class RegistrosService {
       nroPlanilla: detalleRecord.elemento.nro_planilla,
     };
   });
+  await this.progresoService.actualizarProgresos(createRegistroDto.idDetalle);
 
   return registro.registroCreado;
 }
@@ -182,9 +183,8 @@ export class RegistrosService {
         where: { id_detalle: detalleTarea.id_detalle },
         include: { elemento: { select: { nro_planilla: true } } }
       });
-      await this.rendimientoService.actualizarRendimientosPlanilla(
-        detalleRec2!.elemento.nro_planilla
-      );
+    
+      await this.progresoService.actualizarProgresos(detalleTarea.id_detalle);
 
       return updatedRegistro;
     });

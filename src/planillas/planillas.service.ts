@@ -243,9 +243,12 @@ export class PlanillasService {
 
         for (const elem of planilla.elemento) {
         for (const det of elem.detalle) {
-            const cantidadTotal = det.cantidad_total; // Debe venir de createElementoData
+            const cantidadTotal = det.cantidad_total;
+            const longitud = det.longitud_corte;
             const pesoMetro = det.diametro.peso_por_metro;
-            const parcial = cantidadTotal * pesoMetro;
+
+            const parcial = (longitud * cantidadTotal * pesoMetro) / 1000;
+
             pesoTotal += parcial;
             pesosPorDiametro[det.medida_diametro] =
             (pesosPorDiametro[det.medida_diametro] || 0) + parcial;
@@ -256,7 +259,7 @@ export class PlanillasService {
         .map(([diam, peso]) => ({ diametro: Number(diam), peso }))
         .sort((a, b) => a.diametro - b.diametro);
 
-        // Actualizar la planilla con los datos de peso
+        // Actualizar la planilla con los datos de peso (en toneladas)
         const updated = await prisma.planilla.update({
         where: { nro_planilla: planilla.nro_planilla },
         data: {
@@ -266,6 +269,7 @@ export class PlanillasService {
         });
 
         return updated;
+
     });
     // Devolver la planilla actualizada
     return result;

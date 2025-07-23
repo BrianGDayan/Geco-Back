@@ -311,56 +311,83 @@ export class PlanillasService {
 
     // Método para actualizar un detalle específico
     async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto & { cantidadTotal?: number }) {
-    return this.prisma.$transaction(async (prisma) => {
-        // 1) Obtener el detalle actual con campos_modificados
-        const detalleActual = await prisma.detalle.findUnique({
-        where: { id_detalle: idDetalle },
-        });
+        return this.prisma.$transaction(async (prisma) => {
+            // 1) Obtener el detalle actual
+            const detalleActual = await prisma.detalle.findUnique({
+            where: { id_detalle: idDetalle },
+            include: { diametro: true, elemento: true },
+            });
+            if (!detalleActual) {
+            throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
+            }
 
-        if (!detalleActual) {
-        throw new NotFoundException(`Detalle con ID ${idDetalle} no encontrado`);
+            // 2) Guardar valores viejos para ajustar pesos
+            const pesoMetroViejo = detalleActual.diametro.peso_por_metro;
+            const parcialViejo =
+            (detalleActual.longitud_corte *
+                detalleActual.cantidad_total *
+                pesoMetroViejo) /
+            1000;
+
+            // 3) Actualizar el detalle con los nuevos campos
+            const detalleActualizado = await prisma.detalle.update({
+            where: { id_detalle: idDetalle },
+            data: {
+                ...updateDetalleDto,
+                // actualiza campos_modificados si lo manejas igual que antes...
+            },
+            include: { diametro: true, elemento: true },
+            });
+
+            // 4) Calcular el nuevo peso parcial de este detalle
+            const pesoMetroNuevo = detalleActualizado.diametro.peso_por_metro;
+            const parcialNuevo =
+            (detalleActualizado.longitud_corte *
+                detalleActualizado.cantidad_total *
+                pesoMetroNuevo) /
+            1000;
+
+            const delta = parcialNuevo - parcialViejo;
+
+            // 5) Obtener la planilla y sus pesos actuales
+            const planilla = await prisma.planilla.findUnique({
+            where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
+            select: { peso_total: true, pesos_diametro: true },
+            });
+            if (!planilla) {
+            throw new NotFoundException(
+                `Planilla ${detalleActualizado.elemento.nro_planilla} no encontrada`
+            );
+            }
+
+            // 6) Ajustar peso_total
+            const nuevoPesoTotal = planilla.peso_total + delta;
+
+            // 7) Ajustar pesos_diametro para este diámetro
+            const pesosDiam = planilla.pesos_diametro as Array<{
+            diametro: number;
+            peso: number;
+            }>;
+            const idx = pesosDiam.findIndex(
+            (p) => p.diametro === detalleActualizado.medida_diametro
+            );
+            if (idx >= 0) {
+            pesosDiam[idx].peso += delta;
+            } else {
+            // si antes no existía ese diámetro
+            pesosDiam.push({
+                diametro: detalleActualizado.medida_diametro,
+                peso: parcialNuevo,
+            });
         }
 
-        // 2) Extraer valores posibles del DTO
-        const {
-        especificacion,
-        posicion,
-        tipo,
-        medidaDiametro,
-        longitudCorte,
-        cantidadTotal,
-        } = updateDetalleDto;
-
-        // 3) Detectar cuáles campos cambian comparando con el actual
-        const nuevosModificados: string[] = [];
-        if (especificacion   !== undefined && especificacion   !== detalleActual.especificacion)   nuevosModificados.push('especificacion');
-        if (posicion         !== undefined && posicion         !== detalleActual.posicion)         nuevosModificados.push('posicion');
-        if (tipo             !== undefined && tipo             !== detalleActual.tipo)             nuevosModificados.push('tipo');
-        if (medidaDiametro   !== undefined && medidaDiametro   !== detalleActual.medida_diametro)  nuevosModificados.push('medida_diametro');
-        if (longitudCorte    !== undefined && longitudCorte    !== detalleActual.longitud_corte)   nuevosModificados.push('longitud_corte');
-        if (cantidadTotal    !== undefined && cantidadTotal    !== detalleActual.cantidad_total)   nuevosModificados.push('cantidad_total');
-
-        // 4) Recuperar previos y unir con nuevos
-        const camposModificadosPrevios: string[] = Array.isArray(detalleActual.campos_modificados)
-        ? (detalleActual.campos_modificados as string[])
-        : [];
-
-        const camposModificados = Array.from(new Set([...camposModificadosPrevios, ...nuevosModificados]));
-
-        // 5) Armar data solo con lo que efectivamente cambió
-        const dataToUpdate: any = { campos_modificados: camposModificados };
-
-        if (especificacion !== undefined)  dataToUpdate.especificacion    = especificacion;
-        if (posicion       !== undefined)  dataToUpdate.posicion          = posicion;
-        if (tipo           !== undefined)  dataToUpdate.tipo              = tipo;
-        if (medidaDiametro !== undefined)  dataToUpdate.medida_diametro   = medidaDiametro;
-        if (longitudCorte  !== undefined)  dataToUpdate.longitud_corte    = longitudCorte;
-        if (cantidadTotal  !== undefined)  dataToUpdate.cantidad_total    = cantidadTotal;
-
-        // 6) Actualizar en BD
-        const detalleActualizado = await prisma.detalle.update({
-        where: { id_detalle: idDetalle },
-        data: dataToUpdate,
+        // 8) Persistir los nuevos pesos en la planilla
+        await prisma.planilla.update({
+        where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
+        data: {
+            peso_total: nuevoPesoTotal,
+            pesos_diametro: pesosDiam,
+        },
         });
 
         return detalleActualizado;

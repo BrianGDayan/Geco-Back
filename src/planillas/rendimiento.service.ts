@@ -27,28 +27,36 @@ export class RendimientoService {
     // Calcular promedios de rendimientos
     const resultados = await Promise.all(
       tareas.map(async ({ tipo, id }) => {
-        const aggregations = await this.prisma.registro.aggregate({
+        const avgTrabajador = await this.prisma.registro.aggregate({
           where: {
             detalle_tarea: {
               id_tarea: id,
               detalle: { elemento: { nro_planilla: nroPlanilla } },
             },
             rendimiento_trabajador: { gt: 0 },
-            rendimiento_ayudante:    { gt: 0 },
           },
-          _avg: {
-            rendimiento_trabajador: true,
-            rendimiento_ayudante:   true,
+          _avg: { rendimiento_trabajador: true },
+        });
+
+        const avgAyudante = await this.prisma.registro.aggregate({
+          where: {
+            detalle_tarea: {
+              id_tarea: id,
+              detalle: { elemento: { nro_planilla: nroPlanilla } },
+            },
+            rendimiento_ayudante: { gt: 0 },
           },
+          _avg: { rendimiento_ayudante: true },
         });
 
         return {
           tipo,
-          trabajador: aggregations._avg.rendimiento_trabajador ?? 0,
-          ayudante: aggregations._avg.rendimiento_ayudante   ?? 0,
+          trabajador: avgTrabajador._avg.rendimiento_trabajador ?? 0,
+          ayudante: avgAyudante._avg.rendimiento_ayudante ?? 0,
         };
       })
     );
+
 
     const rendimientos = resultados.reduce(
       (acc, { tipo, trabajador, ayudante }) => ({
@@ -72,12 +80,6 @@ export class RendimientoService {
     const agregado = await this.prisma.planilla.aggregate({
       where: {
         progreso: 100,
-        rendimiento_global_corte_trabajador: { gt: 0 },
-        rendimiento_global_doblado_trabajador: { gt: 0 },
-        rendimiento_global_empaquetado_trabajador: { gt: 0 },
-        rendimiento_global_corte_ayudante: { gt: 0 },
-        rendimiento_global_doblado_ayudante: { gt: 0 },
-        rendimiento_global_empaquetado_ayudante: { gt: 0 },
       },
       _avg: {
         rendimiento_global_corte_trabajador: true,

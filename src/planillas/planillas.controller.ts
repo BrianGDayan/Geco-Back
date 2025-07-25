@@ -103,19 +103,22 @@ export class PlanillasController {
     }
     
 
-    // Endpoint para eliminar una planilla
-    @Delete(':nroPlanilla')
-    @Roles(UserRole.ADMIN)
-    async deletePlanilla(@Param('nroPlanilla') nroPlanilla: string) {
-        try {
-            const planillaEliminada = await this.planillasService.deletePlanilla(nroPlanilla);
-            return {
-              message: 'Planilla eliminada exitosamente',
-              planillaEliminada,
-            };
-          } catch (error) {
-            throw new BadRequestException('No se pudo eliminar la planilla', error.message);
-          }
-    }
-
+    // planillas.controller.ts
+@Delete(':nroPlanilla')
+@Roles(UserRole.ADMIN)
+async deletePlanilla(@Param('nroPlanilla') nroPlanilla: string) {
+  try {
+    const planillaEliminada = await this.planillasService.deletePlanilla(nroPlanilla);
+    return {
+      message: 'Planilla eliminada exitosamente',
+      planillaEliminada,
+    };
+  } catch (error: any) {
+    // Le pasamos un objeto literal con tu mensaje + el detalle
+    throw new BadRequestException({
+      message: 'No se pudo eliminar la planilla',
+      detail: error.message,
+    });
+  }
+}
 }

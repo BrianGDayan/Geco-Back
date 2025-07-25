@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePlanillaDto, DetalleDto, ElementoDto } from './dto/create-planilla.dto';
 import { UpdateDetalleDto } from './dto/update-detalle.dto';
 
 @Injectable()
 export class PlanillasService {
+    private readonly logger = new Logger(PlanillasService.name);
     constructor(private prisma: PrismaService) {}
 
     async getPlanillaByNro(nroPlanilla: string, idTarea: number) {
@@ -415,18 +416,29 @@ export class PlanillasService {
     }
 
 
-    // Método para eliminar una planilla junto con sus elementos, detalles, detlle_tarea y registros asociados
-    async deletePlanilla(nroPlanilla: string) {
-        try {
-          const planillaEliminada = await this.prisma.planilla.delete({
-            where: {
-              nro_planilla: nroPlanilla,
-            },
-          });
-          return planillaEliminada;
-        } catch (error) {
-          throw new BadRequestException('Error al eliminar la planilla.');
-        }
-      }
-      
+    // planillas.service.ts
+async deletePlanilla(nroPlanilla: string) {
+  try {
+    // Comprueba primero si existe, así podemos devolver 404 en lugar de 400
+    const existe = await this.prisma.planilla.findUnique({
+      where: { nro_planilla: nroPlanilla },
+      select: { nro_planilla: true }
+    });
+    if (!existe) {
+      throw new NotFoundException(`Planilla ${nroPlanilla} no existe.`);
+    }
+
+    // Ahora sí borramos
+    return await this.prisma.planilla.delete({
+      where: { nro_planilla: nroPlanilla },
+    });
+  } catch (error: any) {
+    // Loguea el error para depuración
+    this.logger.error(`Error borrando planilla ${nroPlanilla}`, error);
+    // Re-lanza con el mensaje original
+    throw new BadRequestException(
+      `No se pudo eliminar la planilla: ${error.message}`
+    );
+  }
+}
 }

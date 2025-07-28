@@ -312,6 +312,7 @@ export class PlanillasService {
 
     // Método para actualizar un detalle específico
     async updateDetalle(idDetalle: number, updateDetalleDto: UpdateDetalleDto & { cantidadTotal?: number }) {
+        this.logger.debug(`Empezando updateDetalle para id ${idDetalle}`);
         return this.prisma.$transaction(async (prisma) => {
             // 1) Obtener el detalle actual
             const detalleActual = await prisma.detalle.findUnique({
@@ -390,31 +391,37 @@ export class PlanillasService {
             pesos_diametro: pesosDiam,
         },
         });
-
+        this.logger.debug(`Detalle ${idDetalle} actualizado con éxito`);
         return detalleActualizado;
     });
     }
 
     // Método para múltiples detalles con incremento de revisión
     async updateDetallesBatch(
-    nroPlanilla: string,
-    updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]
+        nroPlanilla: string,
+        updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]
     ) {
-    return this.prisma.$transaction(async (prisma) => {
-        for (const { idDetalle, updateDetalleDto } of updates) {
-        await this.updateDetalle(idDetalle, updateDetalleDto);
+        this.logger.log(`Iniciando batch update para planilla ${nroPlanilla} con ${updates.length} detalles`);
+        return this.prisma.$transaction(async (prisma) => {
+        try {
+            for (const { idDetalle, updateDetalleDto } of updates) {
+            this.logger.debug(`Actualizando detalle ${idDetalle}`);
+            await this.updateDetalle(idDetalle, updateDetalleDto);
+            }
+
+            const planilla = await prisma.planilla.update({
+            where: { nro_planilla: nroPlanilla },
+            data: { revision: { increment: 1 } },
+            });
+            this.logger.log(`Batch update completado para planilla ${nroPlanilla}`);
+            return planilla;
+        } catch (err) {
+            this.logger.error(`Error en updateDetallesBatch para planilla ${nroPlanilla}`, err.stack);
+            // Re-lanzamos para que el controller reciba el error y devuelva 500
+            throw new BadRequestException('Error interno al actualizar detalles');
         }
-
-        // Incrementa revisión de la planilla
-        const planilla = await prisma.planilla.update({
-        where: { nro_planilla: nroPlanilla },
-        data: { revision: { increment: 1 } },
         });
-
-        return planilla;
-    });
     }
-
     // planillas.service.ts
 async deletePlanilla(nroPlanilla: string) {
   try {

@@ -396,26 +396,103 @@ export class PlanillasService {
     }
 
     // Método para múltiples detalles con incremento de revisión
-    async updateDetallesBatch(
+     async updateDetallesBatch(
     nroPlanilla: string,
     updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]
-    ) {
+  ) {
     return this.prisma.$transaction(async (prisma) => {
-        for (const { idDetalle, updateDetalleDto } of updates) {
-        await this.updateDetalle(idDetalle, updateDetalleDto);
+      for (const { idDetalle, updateDetalleDto } of updates) {
+        // 1) Obtener el detalle actual con sus relaciones
+        const detalleActual = await prisma.detalle.findUnique({
+          where: { id_detalle: idDetalle },
+          include: { diametro: true, elemento: true },
+        });
+        if (!detalleActual) {
+          throw new NotFoundException(`Detalle ${idDetalle} no encontrado`);
         }
 
-        // Incrementa revisión de la planilla
-        const planilla = await prisma.planilla.update({
-        where: { nro_planilla: nroPlanilla },
-        data: { revision: { increment: 1 } },
+        // 2) Calcular peso parcial viejo
+        const pesoMetroViejo = detalleActual.diametro.peso_por_metro;
+        const parcialViejo =
+          (detalleActual.longitud_corte *
+            detalleActual.cantidad_total *
+            pesoMetroViejo) /
+          1000;
+
+        // 3) Unir campos_modificados sin duplicados
+        const prevCampos: string[] = Array.isArray(detalleActual.campos_modificados)
+          ? (detalleActual.campos_modificados as string[])
+          : [];
+        const nuevosCampos = Object.keys(updateDetalleDto);
+        const camposModificados = Array.from(
+          new Set([...prevCampos, ...nuevosCampos])
+        );
+
+        // 4) Actualizar el detalle
+        const detalleAct = await prisma.detalle.update({
+          where: { id_detalle: idDetalle },
+          data: {
+            ...updateDetalleDto,
+            campos_modificados: camposModificados,
+          },
+          include: { diametro: true, elemento: true },
         });
 
-        return planilla;
+        // 5) Calcular peso parcial nuevo
+        const pesoMetroNuevo = detalleAct.diametro.peso_por_metro;
+        const parcialNuevo =
+          (detalleAct.longitud_corte *
+            detalleAct.cantidad_total *
+            pesoMetroNuevo) /
+          1000;
+        const delta = parcialNuevo - parcialViejo;
+
+        // 6) Obtener planilla para ajustar pesos
+        const plano = await prisma.planilla.findUnique({
+          where: { nro_planilla: detalleAct.elemento.nro_planilla },
+          select: { peso_total: true, pesos_diametro: true },
+        });
+        if (!plano) {
+          throw new NotFoundException(
+            `Planilla ${detalleAct.elemento.nro_planilla} no encontrada`
+          );
+        }
+
+        // 7) Ajustar peso_total
+        const nuevoPesoTotal = plano.peso_total + delta;
+
+        // 8) Ajustar array pesos_diametro
+        const pesosArr: { diametro: number; peso: number }[] =
+          plano.pesos_diametro as any;
+        const idx = pesosArr.findIndex(
+          (p) => p.diametro === detalleAct.medida_diametro
+        );
+        if (idx >= 0) {
+          pesosArr[idx].peso += delta;
+        } else {
+          pesosArr.push({
+            diametro: detalleAct.medida_diametro,
+            peso: parcialNuevo,
+          });
+        }
+
+        // 9) Persistir cambios de peso en la planilla
+        await prisma.planilla.update({
+          where: { nro_planilla: detalleAct.elemento.nro_planilla },
+          data: {
+            peso_total: nuevoPesoTotal,
+            pesos_diametro: pesosArr,
+          },
+        });
+      }
+
+      // 10) Incrementar revisión de la planilla
+      return prisma.planilla.update({
+        where: { nro_planilla: nroPlanilla },
+        data: { revision: { increment: 1 } },
+      });
     });
-    }
-
-
+  }
     // planillas.service.ts
 async deletePlanilla(nroPlanilla: string) {
   try {

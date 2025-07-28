@@ -402,18 +402,12 @@ export class PlanillasService {
         const nuevoPesoTotal = planilla.peso_total + (parcialNuevo - parcialViejo);
         const pesosArray = planilla.pesos_diametro as Array<{ diametro: number; peso: number }>;
 
-        // si cambió el diámetro, restamos viejo del old bucket
-        if (
-        updateDetalleDto.medidaDiametro !== undefined &&
-        updateDetalleDto.medidaDiametro !== detalleActual.medida_diametro
-        ) {
-        // restar del viejo
+        if (updateDetalleDto.medidaDiametro !== undefined && updateDetalleDto.medidaDiametro !== detalleActual.medida_diametro) {
         const idxOld = pesosArray.findIndex(p => p.diametro === detalleActual.medida_diametro);
         if (idxOld >= 0) {
             pesosArray[idxOld].peso -= parcialViejo;
             if (pesosArray[idxOld].peso <= 0) pesosArray.splice(idxOld, 1);
         }
-        // sumar al new
         const idxNew = pesosArray.findIndex(p => p.diametro === detalleActualizado.medida_diametro);
         if (idxNew >= 0) {
             pesosArray[idxNew].peso += parcialNuevo;
@@ -421,14 +415,13 @@ export class PlanillasService {
             pesosArray.push({ diametro: detalleActualizado.medida_diametro, peso: parcialNuevo });
         }
         } else {
-        // mismo diámetro → aplicar delta
         const idx = pesosArray.findIndex(p => p.diametro === detalleActualizado.medida_diametro);
         if (idx >= 0) {
             pesosArray[idx].peso += parcialNuevo - parcialViejo;
         }
         }
 
-        // 7) persistir planilla
+        // 7) Guardar cambios en la planilla
         await prisma.planilla.update({
         where: { nro_planilla: detalleActualizado.elemento.nro_planilla },
         data: {
@@ -441,57 +434,28 @@ export class PlanillasService {
     });
     }
 
-
-
-    // Método para múltiples detalles con incremento de revisión
-    async updateDetallesBatch(
-        nroPlanilla: string,
-        updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]
-    ) {
-        this.logger.log(`Iniciando batch update para planilla ${nroPlanilla} con ${updates.length} detalles`);
+    // Incrementar revisión cuando se modifican detalles
+    async updateDetallesBatch(nroPlanilla: string, updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[]) {
         return this.prisma.$transaction(async (prisma) => {
-        try {
-            for (const { idDetalle, updateDetalleDto } of updates) {
-            this.logger.debug(`Actualizando detalle ${idDetalle}`);
-            await this.updateDetalle(idDetalle, updateDetalleDto);
+            try {
+                for (const { idDetalle, updateDetalleDto } of updates) {
+                    await this.updateDetalle(idDetalle, updateDetalleDto);
+                }
+                const planilla = await prisma.planilla.update({
+                    where: { nro_planilla: nroPlanilla },
+                    data: { revision: { increment: 1 } },
+                });
+                return planilla;
+            } catch (err) {
+                throw new BadRequestException('Error interno al actualizar detalles');
             }
-
-            const planilla = await prisma.planilla.update({
-            where: { nro_planilla: nroPlanilla },
-            data: { revision: { increment: 1 } },
-            });
-            this.logger.log(`Batch update completado para planilla ${nroPlanilla}`);
-            return planilla;
-        } catch (err) {
-            this.logger.error(`Error en updateDetallesBatch para planilla ${nroPlanilla}`, err.stack);
-            // Re-lanzamos para que el controller reciba el error y devuelva 500
-            throw new BadRequestException('Error interno al actualizar detalles');
-        }
         });
     }
-    // planillas.service.ts
-async deletePlanilla(nroPlanilla: string) {
-  try {
-    // Comprueba primero si existe, así podemos devolver 404 en lugar de 400
-    const existe = await this.prisma.planilla.findUnique({
-      where: { nro_planilla: nroPlanilla },
-      select: { nro_planilla: true }
-    });
-    if (!existe) {
-      throw new NotFoundException(`Planilla ${nroPlanilla} no existe.`);
-    }
 
-    // Ahora sí borramos
-    return await this.prisma.planilla.delete({
-      where: { nro_planilla: nroPlanilla },
-    });
-  } catch (error: any) {
-    // Loguea el error para depuración
-    this.logger.error(`Error borrando planilla ${nroPlanilla}`, error);
-    // Re-lanza con el mensaje original
-    throw new BadRequestException(
-      `No se pudo eliminar la planilla: ${error.message}`
-    );
-  }
-}
+    // Eliminar una planilla
+    async deletePlanilla(nroPlanilla: string) {
+        return await this.prisma.planilla.delete({
+        where: { nro_planilla: nroPlanilla },
+        });
+    }
 }

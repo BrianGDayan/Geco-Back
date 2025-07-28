@@ -95,14 +95,10 @@ export class PlanillasController {
     // Endpoint para actualizar múltiples detalles y subir revision en 1
     @Patch(':nroPlanilla/detalles/batch')
     @Roles(UserRole.ADMIN)
-    async updateDetallesBatch(
-        @Param('nroPlanilla') nroPlanilla: string,
-        @Body() body: { updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[] }
-    ) {
+    async updateDetallesBatch(@Param('nroPlanilla') rawNro: string, @Body() body: { updates: { idDetalle: number; updateDetalleDto: UpdateDetalleDto }[] }) {
+        const nroPlanilla = rawNro.trim();
         return this.planillasService.updateDetallesBatch(nroPlanilla, body.updates);
     }
-    
-
     // planillas.controller.ts
 @Delete(':nroPlanilla')
 @Roles(UserRole.ADMIN)

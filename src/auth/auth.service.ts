@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -6,32 +6,35 @@ import { UserPayload } from './type/auth.types';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async login(loginDto: LoginDto) {
-    console.log('Login attempt:', loginDto);
+    this.logger.log(`Login attempt: ${JSON.stringify(loginDto)}`);
 
     const usuario = await this.prisma.usuario.findUnique({
       where: { id_usuario: loginDto.idUsuario },
     });
-    console.log('Usuario encontrado:', usuario);
+
+    this.logger.log(`Usuario encontrado: ${usuario ? usuario.id_usuario : 'no encontrado'}`);
 
     if (!usuario || usuario.clave !== loginDto.clave) {
-      console.log('Credenciales inválidas');
+      this.logger.warn('Credenciales inválidas');
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const payload: UserPayload = { 
+    const payload: UserPayload = {
       id_usuario: usuario.id_usuario,
-      rol: usuario.rol 
+      rol: usuario.rol,
     };
-    const token = this.jwtService.sign(payload);
-    console.log('JWT generado:', token);
 
-    // 🔑 ahora devolvemos el token directamente en el body
+    const token = this.jwtService.sign(payload);
+    this.logger.log(`JWT generado: ${token}`);
+
     return {
       id_usuario: usuario.id_usuario,
       rol: usuario.rol,

@@ -9,8 +9,8 @@ export class PlanillasService {
     constructor(private prisma: PrismaService) {}
 
     async getPlanillaByNro(nroPlanilla: string, idTarea: number) {
-        // Obtener la planilla por su número y filtra por tarea
-        return this.prisma.planilla.findUnique({
+        // Traer datos principales de la planilla
+        const planilla = await this.prisma.planilla.findUnique({
             where: { nro_planilla: nroPlanilla },
             select: {
                 nro_planilla: true,
@@ -32,123 +32,192 @@ export class PlanillasService {
                 rendimiento_global_corte_ayudante: true,
                 rendimiento_global_doblado_ayudante: true,
                 rendimiento_global_empaquetado_ayudante: true,
-                elemento: {
-                    select: {
-                        id_elemento: true,
-                        nombre_elemento: true,
-                        detalle: {
-                            select: {
-                                id_detalle: true,
-                                posicion: true,
-                                especificacion: true,
-                                tipo: true,
-                                medida_diametro: true,
-                                longitud_corte: true,
-                                cantidad_unitaria: true,
-                                nro_elementos: true,
-                                nro_iguales: true,
-                                cantidad_total: true,
-                                progreso: true,
-                                campos_modificados: true,
-                                detalle_tarea: {
-                                    where: { id_tarea: idTarea }, // Filtra por tarea
-                                    select: {
-                                        id_detalle_tarea: true,
-                                        cantidad_acumulada: true,
-                                        completado: true,
-                                        tarea: { select: { nombre_tarea: true } }, // Nombre de la tarea
-                                        registro: {
-                                            select: {
-                                                id_registro: true,
-                                                cantidad: true,
-                                                fecha: true,
-                                                horas_trabajador: true,
-                                                horas_ayudante: true,
-                                                rendimiento_trabajador: true,
-                                                rendimiento_ayudante: true,
-                                                trabajador: { select: { nombre: true } },
-                                                ayudante: { select: { nombre: true } }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            },
         });
+
+        if (!planilla) return null;
+
+        // Traer elementos relacionados (solo lo esencial)
+        const elementos = await this.prisma.elemento.findMany({
+            where: { nro_planilla: nroPlanilla },
+            select: {
+                id_elemento: true,
+                nombre_elemento: true,
+            },
+        });
+
+        // Traer detalles por elemento
+        const detalles = await this.prisma.detalle.findMany({
+            where: { id_elemento: { in: elementos.map(e => e.id_elemento) } },
+            select: {
+                id_detalle: true,
+                posicion: true,
+                especificacion: true,
+                tipo: true,
+                medida_diametro: true,
+                longitud_corte: true,
+                cantidad_unitaria: true,
+                nro_elementos: true,
+                cantidad_total: true,
+                progreso: true,
+                campos_modificados: true,
+                id_elemento: true,
+            },
+        });
+
+        // Traer detalle_tarea filtrado por idTarea
+        const detalleTareas = await this.prisma.detalle_tarea.findMany({
+            where: {
+                id_detalle: { in: detalles.map(d => d.id_detalle) },
+                id_tarea: idTarea,
+            },
+            select: {
+                id_detalle_tarea: true,
+                cantidad_acumulada: true,
+                completado: true,
+                id_detalle: true,
+                tarea: { select: { nombre_tarea: true } },
+            },
+        });
+
+        // Traer registros relacionados a detalle_tarea
+        const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
+        const registros = await this.prisma.registro.findMany({
+            where: { id_detalle_tarea: { in: detalleTareaIds } },
+            select: {
+                id_registro: true,
+                cantidad: true,
+                fecha: true,
+                horas_trabajador: true,
+                horas_ayudante: true,
+                rendimiento_trabajador: true,
+                rendimiento_ayudante: true,
+                trabajador: { select: { nombre: true } },
+                ayudante: { select: { nombre: true } },
+                id_detalle_tarea: true,
+            },
+        });
+
+        // Reconstruir la estructura
+        return {
+            ...planilla,
+            elemento: elementos.map(elem => ({
+                ...elem,
+                detalle: detalles
+                    .filter(d => d.id_elemento === elem.id_elemento)
+                    .map(det => ({
+                        ...det,
+                        detalle_tarea: detalleTareas
+                            .filter(dt => dt.id_detalle === det.id_detalle)
+                            .map(dt => ({
+                                ...dt,
+                                registro: registros.filter(r => r.id_detalle_tarea === dt.id_detalle_tarea),
+                            })),
+                    })),
+            })),
+        };
     }
 
     //Obtener una planilla completa con todos sus detalles y tareas
     async getPlanillaCompleta(nroPlanilla: string) {
-        return this.prisma.planilla.findUnique({
-        where: { nro_planilla: nroPlanilla },
-        select: {
-            nro_planilla: true,
-            obra: true,
-            nro_plano: true,
-            sector: true,
-            encargado_elaborar: true,
-            encargado_revisar: true,
-            encargado_aprobar: true,
-            fecha: true,
-            revision: true,
-            item: true,
-            progreso: true,
-            peso_total: true,
-            pesos_diametro: true,
-            rendimiento_global_corte_trabajador: true,
-            rendimiento_global_doblado_trabajador: true,
-            rendimiento_global_empaquetado_trabajador: true,
-            rendimiento_global_corte_ayudante: true,
-            rendimiento_global_doblado_ayudante: true,
-            rendimiento_global_empaquetado_ayudante: true,
-            elemento: {
+        const planilla = await this.prisma.planilla.findUnique({
+            where: { nro_planilla: nroPlanilla },
+            select: {
+                nro_planilla: true,
+                obra: true,
+                nro_plano: true,
+                sector: true,
+                encargado_elaborar: true,
+                encargado_revisar: true,
+                encargado_aprobar: true,
+                fecha: true,
+                revision: true,
+                item: true,
+                progreso: true,
+                peso_total: true,
+                pesos_diametro: true,
+                rendimiento_global_corte_trabajador: true,
+                rendimiento_global_doblado_trabajador: true,
+                rendimiento_global_empaquetado_trabajador: true,
+                rendimiento_global_corte_ayudante: true,
+                rendimiento_global_doblado_ayudante: true,
+                rendimiento_global_empaquetado_ayudante: true,
+            },
+        });
+
+        if (!planilla) return null;
+
+        const elementos = await this.prisma.elemento.findMany({
+            where: { nro_planilla: nroPlanilla },
             select: {
                 id_elemento: true,
                 nombre_elemento: true,
-                detalle: {
-                select: {
-                    id_detalle: true,
-                    posicion: true,
-                    especificacion: true,
-                    tipo: true,
-                    medida_diametro: true,
-                    longitud_corte: true,
-                    cantidad_unitaria: true,
-                    nro_elementos: true,
-                    nro_iguales: true,
-                    cantidad_total: true,
-                    progreso: true,
-                    campos_modificados: true,
-                    detalle_tarea: {
-                    select: {
-                        id_detalle_tarea: true,
-                        cantidad_acumulada: true,
-                        completado: true,
-                        tarea: { select: { nombre_tarea: true } },
-                        registro: {
-                        select: {
-                            id_registro: true,
-                            cantidad: true,
-                            fecha: true,
-                            horas_trabajador: true,
-                            horas_ayudante: true,
-                            rendimiento_trabajador: true,
-                            rendimiento_ayudante: true,
-                            trabajador: { select: { nombre: true } },
-                            ayudante: { select: { nombre: true } },
-                        },
-                        },
-                    },
-                    },
-                },
-                },
             },
-            },
-        },
         });
+
+        const detalles = await this.prisma.detalle.findMany({
+            where: { id_elemento: { in: elementos.map(e => e.id_elemento) } },
+            select: {
+                id_detalle: true,
+                posicion: true,
+                especificacion: true,
+                tipo: true,
+                medida_diametro: true,
+                longitud_corte: true,
+                cantidad_unitaria: true,
+                nro_elementos: true,
+                cantidad_total: true,
+                progreso: true,
+                campos_modificados: true,
+                id_elemento: true,
+            },
+        });
+
+        const detalleTareas = await this.prisma.detalle_tarea.findMany({
+            where: { id_detalle: { in: detalles.map(d => d.id_detalle) } },
+            select: {
+                id_detalle_tarea: true,
+                cantidad_acumulada: true,
+                completado: true,
+                id_detalle: true,
+                tarea: { select: { nombre_tarea: true } },
+            },
+        });
+
+        const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
+        const registros = await this.prisma.registro.findMany({
+            where: { id_detalle_tarea: { in: detalleTareaIds } },
+            select: {
+                id_registro: true,
+                cantidad: true,
+                fecha: true,
+                horas_trabajador: true,
+                horas_ayudante: true,
+                rendimiento_trabajador: true,
+                rendimiento_ayudante: true,
+                trabajador: { select: { nombre: true } },
+                ayudante: { select: { nombre: true } },
+                id_detalle_tarea: true,
+            },
+        });
+
+        return {
+            ...planilla,
+            elemento: elementos.map(elem => ({
+                ...elem,
+                detalle: detalles
+                    .filter(d => d.id_elemento === elem.id_elemento)
+                    .map(det => ({
+                        ...det,
+                        detalle_tarea: detalleTareas
+                            .filter(dt => dt.id_detalle === det.id_detalle)
+                            .map(dt => ({
+                                ...dt,
+                                registro: registros.filter(r => r.id_detalle_tarea === dt.id_detalle_tarea),
+                            })),
+                    })),
+            })),
+        };
     }
     
     // Obtener las planillas con un progreso específico (usada para mostrar planillas completadas donde progreso = 100)
@@ -200,80 +269,58 @@ export class PlanillasService {
     }
    
     async createPlanilla(createPlanillaDto: CreatePlanillaDto, idUsuario: number) {
-    // Crear la planilla junto con sus elementos y detalles en una transacción
-    const tareas = [1, 2, 3];
-    const result = await this.prisma.$transaction(async (prisma) => {
-        // Crear registro inicial de planilla
-        const planilla = await prisma.planilla.create({
-        data: {
-            nro_planilla: createPlanillaDto.nroPlanilla,
-            obra: createPlanillaDto.obra,
-            nro_plano: createPlanillaDto.nroPlano,
-            sector: createPlanillaDto.sector,
-            encargado_elaborar: createPlanillaDto.encargadoElaborar,
-            encargado_revisar: createPlanillaDto.encargadoRevisar,
-            encargado_aprobar: createPlanillaDto.encargadoAprobar,
-            fecha: createPlanillaDto.fecha,
-            item: createPlanillaDto.item,
-            id_usuario: idUsuario,
-            progreso: 0,
-            peso_total: 0,
-            pesos_diametro: [],
-            elemento: {
-            create: createPlanillaDto.elemento.map((elem) =>
-                this.createElementoData(elem, tareas)
-            ),
+        const tareas = [1, 2, 3];
+
+        return this.prisma.$transaction(
+            async (prisma) => {
+                // 1) Crear la planilla con elementos y detalles
+                const planilla = await prisma.planilla.create({
+                    data: {
+                        nro_planilla: createPlanillaDto.nroPlanilla,
+                        obra: createPlanillaDto.obra,
+                        nro_plano: createPlanillaDto.nroPlano,
+                        sector: createPlanillaDto.sector,
+                        encargado_elaborar: createPlanillaDto.encargadoElaborar,
+                        encargado_revisar: createPlanillaDto.encargadoRevisar,
+                        encargado_aprobar: createPlanillaDto.encargadoAprobar,
+                        fecha: createPlanillaDto.fecha,
+                        item: createPlanillaDto.item,
+                        id_usuario: idUsuario,
+                        progreso: 0,
+                        peso_total: 0,
+                        pesos_diametro: [],
+                        elemento: {
+                            create: createPlanillaDto.elemento.map((elem) =>
+                                this.createElementoData(elem, tareas)
+                            ),
+                        },
+                    },
+                    include: {
+                        elemento: {
+                            include: {
+                                detalle: {
+                                    include: {
+                                        diametro: { select: { peso_por_metro: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+
+                // 2) Calcular pesos
+                const { pesoTotal, pesos_diametro } = this.calcularPesos(planilla.elemento);
+
+                // 3) Actualizar planilla con los pesos
+                return prisma.planilla.update({
+                    where: { nro_planilla: planilla.nro_planilla },
+                    data: { peso_total: pesoTotal, pesos_diametro },
+                });
             },
-        },
-        include: {
-            elemento: {
-            include: {
-                detalle: {
-                include: {
-                    diametro: { select: { peso_por_metro: true } },
-                },
-                },
-            },
-            },
-        },
-        });
-
-        // Calcular peso_total y pesos por diámetro basado en elementos creados
-        const pesosPorDiametro: Record<number, number> = {};
-        let pesoTotal = 0;
-
-        for (const elem of planilla.elemento) {
-        for (const det of elem.detalle) {
-            const cantidadTotal = det.cantidad_total;
-            const longitud = det.longitud_corte;
-            const pesoMetro = det.diametro.peso_por_metro;
-
-            const parcial = (longitud * cantidadTotal * pesoMetro) / 1000;
-
-            pesoTotal += parcial;
-            pesosPorDiametro[det.medida_diametro] =
-            (pesosPorDiametro[det.medida_diametro] || 0) + parcial;
-        }
-        }
-
-        const pesos_diametro = Object.entries(pesosPorDiametro)
-        .map(([diam, peso]) => ({ diametro: Number(diam), peso }))
-        .sort((a, b) => a.diametro - b.diametro);
-
-        // Actualizar la planilla con los datos de peso (en toneladas)
-        const updated = await prisma.planilla.update({
-        where: { nro_planilla: planilla.nro_planilla },
-        data: {
-            peso_total: pesoTotal,
-            pesos_diametro,
-        },
-        });
-
-        return updated;
-
-    });
-    // Devolver la planilla actualizada
-    return result;
+            {
+                timeout: 30000 // Aumentado a 30 segundos para evitar cierre prematuro de la transacción
+            }
+        );
     }
 
     // Método auxiliar para crear los datos del elemento
@@ -298,8 +345,7 @@ export class PlanillasService {
             longitud_corte: detalle.longitudCorte,
             cantidad_unitaria: detalle.cantidadUnitaria,
             nro_elementos: detalle.nroElementos,
-            nro_iguales: detalle.nroIguales,
-            cantidad_total: detalle.cantidadUnitaria * detalle.nroElementos * detalle.nroIguales,
+            cantidad_total: detalle.cantidadUnitaria * detalle.nroElementos,
             detalle_tarea: {
                 create: tareas.map(id_tarea => ({
                     id_tarea,
@@ -308,6 +354,94 @@ export class PlanillasService {
                 })),
             },
         };
+    }
+
+    // Método auxiliar: construye el data para updateDetalle y los campos_modificados
+    private buildUpdateData(
+    detalleActual: any,
+    updateDetalleDto: UpdateDetalleDto & { cantidadTotal?: number }
+    ) {
+    const mapping: Record<string, keyof typeof updateDetalleDto> = {
+        especificacion: 'especificacion',
+        posicion: 'posicion',
+        tipo: 'tipo',
+        medida_diametro: 'medidaDiametro',
+        longitud_corte: 'longitudCorte',
+        cantidad_total: 'cantidadTotal',
+    };
+
+    const data: any = {};
+    const nuevos: string[] = [];
+
+    for (const [dbField, dtoField] of Object.entries(mapping)) {
+        const newValue = updateDetalleDto[dtoField];
+        if (newValue !== undefined && newValue !== detalleActual[dbField]) {
+        data[dbField] = newValue;
+        nuevos.push(dbField);
+        }
+    }
+
+    const prev = Array.isArray(detalleActual.campos_modificados)
+        ? detalleActual.campos_modificados
+        : [];
+
+    return { data, campos_modificados: Array.from(new Set([...prev, ...nuevos])) };
+    }
+
+    // Método auxiliar: actualiza el array de pesos_diametro
+    private updatePesosArray(
+    pesosArray: Array<{ diametro: number; peso: number }>,
+    detalleViejo: any,
+    detalleNuevo: any,
+    parcialViejo: number,
+    parcialNuevo: number
+    ) {
+    // Cambió el diámetro → quitar del viejo y sumar al nuevo
+    if (detalleNuevo.medida_diametro !== detalleViejo.medida_diametro) {
+        const idxOld = pesosArray.findIndex(p => p.diametro === detalleViejo.medida_diametro);
+        if (idxOld >= 0) {
+        pesosArray[idxOld].peso -= parcialViejo;
+        if (pesosArray[idxOld].peso <= 0) pesosArray.splice(idxOld, 1);
+        }
+
+        const idxNew = pesosArray.findIndex(p => p.diametro === detalleNuevo.medida_diametro);
+        if (idxNew >= 0) {
+        pesosArray[idxNew].peso += parcialNuevo;
+        } else {
+        pesosArray.push({ diametro: detalleNuevo.medida_diametro, peso: parcialNuevo });
+        }
+    } else {
+        // Mismo diámetro → ajustar solo la diferencia
+        const idx = pesosArray.findIndex(p => p.diametro === detalleNuevo.medida_diametro);
+        if (idx >= 0) {
+        pesosArray[idx].peso += parcialNuevo - parcialViejo;
+        }
+    }
+    return pesosArray;
+    }
+
+    // Calcular pesos (total + por diámetro) a partir de los elementos creados
+    private calcularPesos(elementos: any[]) {
+    const pesosPorDiametro: Record<number, number> = {};
+    let pesoTotal = 0;
+
+    for (const elem of elementos) {
+        for (const det of elem.detalle) {
+        const parcial =
+            (det.longitud_corte * det.cantidad_total * det.diametro.peso_por_metro) /
+            1000;
+
+        pesoTotal += parcial;
+        pesosPorDiametro[det.medida_diametro] =
+            (pesosPorDiametro[det.medida_diametro] || 0) + parcial;
+        }
+    }
+
+    const pesos_diametro = Object.entries(pesosPorDiametro)
+        .map(([diam, peso]) => ({ diametro: Number(diam), peso }))
+        .sort((a, b) => a.diametro - b.diametro);
+
+    return { pesoTotal, pesos_diametro };
     }
 
     // Método para actualizar un detalle específico
@@ -323,71 +457,27 @@ export class PlanillasService {
         }
 
         // 2) calcular parcial viejo
-        const pesoMetroViejo = detalleActual.diametro.peso_por_metro;
         const parcialViejo =
         (detalleActual.longitud_corte *
             detalleActual.cantidad_total *
-            pesoMetroViejo) /
+            detalleActual.diametro.peso_por_metro) /
         1000;
 
-        // 3) detectar todos los campos modificados
-        const camposPrevios = Array.isArray(detalleActual.campos_modificados)
-        ? detalleActual.campos_modificados
-        : [];
-        const nuevos: string[] = [];
-        if (
-        updateDetalleDto.especificacion !== undefined &&
-        updateDetalleDto.especificacion !== detalleActual.especificacion
-        )
-        nuevos.push('especificacion');
-        if (
-        updateDetalleDto.posicion !== undefined &&
-        updateDetalleDto.posicion !== detalleActual.posicion
-        )
-        nuevos.push('posicion');
-        if (
-        updateDetalleDto.tipo !== undefined &&
-        updateDetalleDto.tipo !== detalleActual.tipo
-        )
-        nuevos.push('tipo');
-        if (
-        updateDetalleDto.medidaDiametro !== undefined &&
-        updateDetalleDto.medidaDiametro !== detalleActual.medida_diametro
-        )
-        nuevos.push('medida_diametro');
-        if (
-        updateDetalleDto.longitudCorte !== undefined &&
-        updateDetalleDto.longitudCorte !== detalleActual.longitud_corte
-        )
-        nuevos.push('longitud_corte');
-        if (
-        updateDetalleDto.cantidadTotal !== undefined &&
-        updateDetalleDto.cantidadTotal !== detalleActual.cantidad_total
-        )
-        nuevos.push('cantidad_total');
-        const campos_modificados = Array.from(new Set([...camposPrevios, ...nuevos]));
+        // 3) armar data + campos_modificados
+        const { data, campos_modificados } = this.buildUpdateData(detalleActual, updateDetalleDto);
 
-        // 4) actualizar detalle en snake_case
+        // 4) actualizar detalle
         const detalleActualizado = await prisma.detalle.update({
         where: { id_detalle: idDetalle },
-        data: {
-            ...(updateDetalleDto.especificacion !== undefined && { especificacion: updateDetalleDto.especificacion }),
-            ...(updateDetalleDto.posicion       !== undefined && { posicion:       updateDetalleDto.posicion }),
-            ...(updateDetalleDto.tipo           !== undefined && { tipo:           updateDetalleDto.tipo }),
-            ...(updateDetalleDto.medidaDiametro !== undefined && { medida_diametro: updateDetalleDto.medidaDiametro }),
-            ...(updateDetalleDto.longitudCorte  !== undefined && { longitud_corte:  updateDetalleDto.longitudCorte }),
-            ...(updateDetalleDto.cantidadTotal  !== undefined && { cantidad_total:  updateDetalleDto.cantidadTotal }),
-            campos_modificados,
-        },
+        data: { ...data, campos_modificados },
         include: { diametro: true, elemento: true },
         });
 
         // 5) calcular parcial nuevo
-        const pesoMetroNuevo = detalleActualizado.diametro.peso_por_metro;
         const parcialNuevo =
         (detalleActualizado.longitud_corte *
             detalleActualizado.cantidad_total *
-            pesoMetroNuevo) /
+            detalleActualizado.diametro.peso_por_metro) /
         1000;
 
         // 6) ajustar planilla
@@ -400,26 +490,13 @@ export class PlanillasService {
         }
 
         const nuevoPesoTotal = planilla.peso_total + (parcialNuevo - parcialViejo);
-        const pesosArray = planilla.pesos_diametro as Array<{ diametro: number; peso: number }>;
-
-        if (updateDetalleDto.medidaDiametro !== undefined && updateDetalleDto.medidaDiametro !== detalleActual.medida_diametro) {
-        const idxOld = pesosArray.findIndex(p => p.diametro === detalleActual.medida_diametro);
-        if (idxOld >= 0) {
-            pesosArray[idxOld].peso -= parcialViejo;
-            if (pesosArray[idxOld].peso <= 0) pesosArray.splice(idxOld, 1);
-        }
-        const idxNew = pesosArray.findIndex(p => p.diametro === detalleActualizado.medida_diametro);
-        if (idxNew >= 0) {
-            pesosArray[idxNew].peso += parcialNuevo;
-        } else {
-            pesosArray.push({ diametro: detalleActualizado.medida_diametro, peso: parcialNuevo });
-        }
-        } else {
-        const idx = pesosArray.findIndex(p => p.diametro === detalleActualizado.medida_diametro);
-        if (idx >= 0) {
-            pesosArray[idx].peso += parcialNuevo - parcialViejo;
-        }
-        }
+        const pesosArray = this.updatePesosArray(
+        planilla.pesos_diametro as any[],
+        detalleActual,
+        detalleActualizado,
+        parcialViejo,
+        parcialNuevo
+        );
 
         // 7) Guardar cambios en la planilla
         await prisma.planilla.update({

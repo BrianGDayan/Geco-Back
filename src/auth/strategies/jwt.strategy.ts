@@ -8,7 +8,7 @@ import { UserPayload } from '../type/auth.types';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private prisma: PrismaService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // 👈 cambiamos acá
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), 
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET || 'secretKey',
     });

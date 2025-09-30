@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
 }
 
 model detalle {
@@ -15,7 +16,6 @@ model detalle {
   longitud_corte     Float           @db.Real
   cantidad_unitaria  Int
   nro_elementos      Int
-  nro_iguales        Int
   cantidad_total     Int
   id_elemento        Int
   progreso           Int             @default(0)
@@ -34,21 +34,21 @@ model diametro {
 
 model elemento {
   id_elemento     Int       @id @default(autoincrement())
-  nombre_elemento String    @db.VarChar(50)
-  nro_planilla    String    @db.VarChar(15)
+  nombre_elemento String    @db.VarChar(150)
+  nro_planilla    String    @db.VarChar(50)
   progreso        Int       @default(0)
   detalle         detalle[]
   planilla        planilla  @relation(fields: [nro_planilla], references: [nro_planilla], onDelete: Cascade, onUpdate: NoAction, map: "nro_planilla")
 }
 
 model planilla {
-  nro_planilla                              String     @id @db.VarChar(15)
+  nro_planilla                              String     @id @db.VarChar(30)
   obra                                      String     @db.VarChar(30)
   nro_plano                                 String     @db.VarChar(30)
   sector                                    String     @db.VarChar(30)
-  encargado_elaborar                        String     @db.VarChar(15)
-  encargado_revisar                         String     @db.VarChar(15)
-  encargado_aprobar                         String?    @db.VarChar(15)
+  encargado_elaborar                        String     @db.VarChar(5)
+  encargado_revisar                         String     @db.VarChar(5)
+  encargado_aprobar                         String?    @db.VarChar(5)
   fecha                                     DateTime   @db.Date
   revision                                  Int        @default(0)
   item                                      String     @db.VarChar(20)

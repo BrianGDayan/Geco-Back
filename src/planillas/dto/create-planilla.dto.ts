@@ -29,16 +29,12 @@ export class DetalleDto {
     @IsInt()
     @IsNotEmpty({ message: 'El número de elementos es requerido' })
     nroElementos: number;
-
-    @IsInt()
-    @IsNotEmpty({ message: 'El número de iguales es requerido' })
-    nroIguales: number;
 }
 
 export class ElementoDto {
     @IsString()
     @IsNotEmpty({ message: 'El nombre del elemento es requerido' })
-    @MaxLength(50, { message: 'El nombre no puede exceder 50 caracteres' })
+    @MaxLength(150, { message: 'El nombre no puede exceder los 150 caracteres' })
     nombre: string;
 
     @IsArray()
@@ -51,7 +47,7 @@ export class ElementoDto {
 export class CreatePlanillaDto {
     @IsString()
     @IsNotEmpty()
-    @MaxLength(15, { message: 'El número de planilla no puede tener más de 15 caracteres' })
+    @MaxLength(30, { message: 'El número de planilla no puede tener más de 30 caracteres' })
     nroPlanilla: string;
 
     @IsString()
@@ -71,17 +67,17 @@ export class CreatePlanillaDto {
 
     @IsString()
     @IsNotEmpty()
-    @MaxLength(15, { message: 'El nombre del encargado de elaborar no puede tener más de 15 caracteres' })
+    @MaxLength(5, { message: 'El nombre del encargado de elaborar no puede tener más de 5 caracteres' })
     encargadoElaborar: string;
 
     @IsString()
     @IsNotEmpty()
-    @MaxLength(15, { message: 'El nombre del encargado de revisar no puede tener más de 15 caracteres' })
+    @MaxLength(5, { message: 'El nombre del encargado de revisar no puede tener más de 5 caracteres' })
     encargadoRevisar: string;
 
     @IsString()
     @IsOptional()
-    @MaxLength(15, { message: 'El nombre del encargado de aprobar no puede tener más de 15 caracteres' })
+    @MaxLength(5, { message: 'El nombre del encargado de aprobar no puede tener más de 5 caracteres' })
     encargadoAprobar: string;
 
     @IsDate({ message: 'La fecha debe ser una instancia de Date' })

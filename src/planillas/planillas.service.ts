@@ -290,7 +290,7 @@ export class PlanillasService {
                         peso_total: 0,
                         pesos_diametro: [],
                         elemento: {
-                            create: createPlanillaDto.elemento.map((elem) =>
+                            create: createPlanillaDto.elemento.map(elem =>
                                 this.createElementoData(elem, tareas)
                             ),
                         },
@@ -300,7 +300,7 @@ export class PlanillasService {
                             include: {
                                 detalle: {
                                     include: {
-                                        diametro: { select: { peso_por_metro: true } },
+                                        diametro: true,
                                     },
                                 },
                             },
@@ -328,14 +328,13 @@ export class PlanillasService {
         return {
             nombre_elemento: elemento.nombre,
             detalle: {
-                create: elemento.detalle.map(detalle => 
+                create: elemento.detalle.map(detalle =>
                     this.createDetalleData(detalle, tareas)
                 ),
             },
         };
     }
 
-    // Método auxiliar para crear los datos del detalle
     private createDetalleData(detalle: DetalleDto, tareas: number[]) {
         return {
             especificacion: detalle.especificacion,
@@ -346,6 +345,7 @@ export class PlanillasService {
             cantidad_unitaria: detalle.cantidadUnitaria,
             nro_elementos: detalle.nroElementos,
             cantidad_total: detalle.cantidadUnitaria * detalle.nroElementos,
+            diametro: { connect: { medida_diametro: detalle.medidaDiametro } }, 
             detalle_tarea: {
                 create: tareas.map(id_tarea => ({
                     id_tarea,

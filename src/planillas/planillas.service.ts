@@ -345,7 +345,6 @@ export class PlanillasService {
             cantidad_unitaria: detalle.cantidadUnitaria,
             nro_elementos: detalle.nroElementos,
             cantidad_total: detalle.cantidadUnitaria * detalle.nroElementos,
-            diametro: { connect: { medida_diametro: detalle.medidaDiametro } }, 
             detalle_tarea: {
                 create: tareas.map(id_tarea => ({
                     id_tarea,

@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_DIRECT_URL")
 }
 
@@ -68,7 +68,7 @@ model planilla {
 
 model trabajador {
   id_trabajador           Int        @id @default(autoincrement())
-  nombre                  String     @db.VarChar(20) @unique
+  nombre                  String     @unique @db.VarChar(20)
   rendimiento_corte       Float      @default(0) @db.Real
   rendimiento_doblado     Float      @default(0) @db.Real
   rendimiento_empaquetado Float      @default(0) @db.Real

@@ -10,6 +10,8 @@ async function bootstrap() {
 
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(
@@ -21,6 +23,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api');
+
   await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

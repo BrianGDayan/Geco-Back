@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlanillaDto, DetalleDto, ElementoDto } from './dto/create-planilla.dto';
 import { UpdateDetalleDto } from './dto/update-detalle.dto';
 

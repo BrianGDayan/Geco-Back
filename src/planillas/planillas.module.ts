@@ -3,9 +3,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RendimientoService } from './rendimiento.service';
 import { PlanillasController } from './planillas.controller';
-import { PlanillasService } from './planillas.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; 
-import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { PlanillasService } from './planillas.service'; 
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [PrismaModule, CloudinaryModule, ScheduleModule.forRoot()],

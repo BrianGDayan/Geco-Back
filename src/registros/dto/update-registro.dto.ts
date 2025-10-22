@@ -1,4 +1,4 @@
-import { IsDate, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateRegistroDto {
     @IsOptional()

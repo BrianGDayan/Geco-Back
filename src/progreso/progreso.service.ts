@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RendimientoService } from 'src/planillas/rendimiento.service';
+import { RendimientoService } from '../planillas/rendimiento.service';
 
 @Injectable()
 export class ProgresoService {

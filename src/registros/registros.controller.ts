@@ -1,12 +1,12 @@
 import { Body, Controller, HttpStatus, Post, Res, UseGuards, Req, Patch, Param, ParseIntPipe, UnauthorizedException } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from "src/auth/guards/roles.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
 import { RegistrosService } from './registros.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UserRole } from 'src/auth/type/auth.types';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../auth/type/auth.types';
 
 @Controller('registros')
 @UseGuards(JwtAuthGuard, RolesGuard)

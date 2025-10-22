@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { UpdateRegistroDto } from './dto/update-registro.dto';
-import { ProgresoService } from 'src/progreso/progreso.service';
-import { RendimientoService } from 'src/planillas/rendimiento.service';
+import { ProgresoService } from '../progreso/progreso.service';
+import { RendimientoService } from '../planillas/rendimiento.service';
 
 @Injectable()
 export class RegistrosService {

@@ -1,13 +1,13 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, Res, UseGuards, HttpStatus, ValidationPipe, UnauthorizedException } from "@nestjs/common";
 import { Request, Response } from "express";
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from "src/auth/guards/roles.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
 import { CreatePlanillaDto } from "./dto/create-planilla.dto";
 import { PlanillasService } from "./planillas.service";
 import { UpdateDetalleDto } from "./dto/update-detalle.dto";
-import { UserPayload, UserRole } from "src/auth/type/auth.types";
+import { UserPayload, UserRole } from "../auth/type/auth.types";
 import { RendimientoService } from "./rendimiento.service";
-import { Roles } from "src/auth/decorators/roles.decorator";
+import { Roles } from "../auth/decorators/roles.decorator";
 
 @Controller('planillas')
 @UseGuards(JwtAuthGuard, RolesGuard)   

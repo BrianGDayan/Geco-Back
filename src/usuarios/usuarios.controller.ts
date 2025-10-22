@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, ParseIntPipe, ValidationPipe, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, ParseIntPipe, ValidationPipe, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from "src/auth/guards/roles.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UserRole } from 'src/auth/type/auth.types';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../auth/type/auth.types';
 
 
 @Controller('usuarios')

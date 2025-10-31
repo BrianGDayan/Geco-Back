@@ -8,8 +8,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TrabajadoresModule } from './trabajadores/trabajadores.module';
 import { ProgresoModule } from './progreso/progreso.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
-  imports: [AuthModule, ScheduleModule.forRoot(), UsuariosModule, PlanillasModule, RegistrosModule, PrismaModule, TrabajadoresModule, ProgresoModule, CloudinaryModule],
+  imports: [AuthModule, ScheduleModule.forRoot(), UsuariosModule, PlanillasModule, RegistrosModule, PrismaModule, TrabajadoresModule, ProgresoModule, CloudinaryModule, HealthModule],
 })
 export class AppModule {}

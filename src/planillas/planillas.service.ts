@@ -9,80 +9,101 @@ export class PlanillasService {
     constructor(private prisma: PrismaService) {}
 
     async getPlanillaByNro(nroPlanilla: string, idTarea: number) {
-        // Traer datos principales de la planilla
-        const planilla = await this.prisma.planilla.findUnique({
-            where: { nro_planilla: nroPlanilla },
-            select: {
-                nro_planilla: true,
-                obra: true,
-                nro_plano: true,
-                sector: true,
-                encargado_elaborar: true,
-                encargado_revisar: true,
-                encargado_aprobar: true,
-                fecha: true,
-                revision: true,
-                item: true,
-                progreso: true,
-                peso_total: true,
-                pesos_diametro: true,
-                rendimiento_global_corte_trabajador: true,
-                rendimiento_global_doblado_trabajador: true,
-                rendimiento_global_empaquetado_trabajador: true,
-                rendimiento_global_corte_ayudante: true,
-                rendimiento_global_doblado_ayudante: true,
-                rendimiento_global_empaquetado_ayudante: true,
-            },
-        });
+    // 1) Obtener la planilla
+    const planilla = await this.prisma.planilla.findUnique({
+        where: { nro_planilla: nroPlanilla },
+        select: {
+            nro_planilla: true,
+            obra: true,
+            nro_plano: true,
+            sector: true,
+            encargado_elaborar: true,
+            encargado_revisar: true,
+            encargado_aprobar: true,
+            fecha: true,
+            revision: true,
+            item: true,
+            progreso: true,
+            peso_total: true,
+            pesos_diametro: true,
+            rendimiento_global_corte_trabajador: true,
+            rendimiento_global_doblado_trabajador: true,
+            rendimiento_global_empaquetado_trabajador: true,
+            rendimiento_global_corte_ayudante: true,
+            rendimiento_global_doblado_ayudante: true,
+            rendimiento_global_empaquetado_ayudante: true,
+        },
+    });
 
-        if (!planilla) return null;
+    if (!planilla) {
+        throw new NotFoundException(`Planilla ${nroPlanilla} no encontrada`);
+    }
 
-        // Traer elementos relacionados (solo lo esencial)
-        const elementos = await this.prisma.elemento.findMany({
-            where: { nro_planilla: nroPlanilla },
-            select: {
-                id_elemento: true,
-                nombre_elemento: true,
-            },
-        });
+    // 2) Elementos asociados
+    const elementos = await this.prisma.elemento.findMany({
+        where: { nro_planilla: nroPlanilla },
+        select: {
+            id_elemento: true,
+            nombre_elemento: true,
+        },
+    });
 
-        // Traer detalles por elemento
-        const detalles = await this.prisma.detalle.findMany({
-            where: { id_elemento: { in: elementos.map(e => e.id_elemento) } },
-            select: {
-                id_detalle: true,
-                posicion: true,
-                especificacion: true,
-                tipo: true,
-                medida_diametro: true,
-                longitud_corte: true,
-                cantidad_unitaria: true,
-                nro_elementos: true,
-                cantidad_total: true,
-                progreso: true,
-                campos_modificados: true,
-                id_elemento: true,
-            },
-        });
+    if (elementos.length === 0) {
+        return {
+            ...planilla,
+            elemento: [] // la planilla existe pero no tiene elementos
+        };
+    }
 
-        // Traer detalle_tarea filtrado por idTarea
-        const detalleTareas = await this.prisma.detalle_tarea.findMany({
-            where: {
-                id_detalle: { in: detalles.map(d => d.id_detalle) },
-                id_tarea: idTarea,
-            },
-            select: {
-                id_detalle_tarea: true,
-                cantidad_acumulada: true,
-                completado: true,
-                id_detalle: true,
-                tarea: { select: { nombre_tarea: true } },
-            },
-        });
+    // 3) Detalles asociados
+    const detalles = await this.prisma.detalle.findMany({
+        where: { id_elemento: { in: elementos.map(e => e.id_elemento) } },
+        select: {
+            id_detalle: true,
+            posicion: true,
+            especificacion: true,
+            tipo: true,
+            medida_diametro: true,
+            longitud_corte: true,
+            cantidad_unitaria: true,
+            nro_elementos: true,
+            cantidad_total: true,
+            progreso: true,
+            campos_modificados: true,
+            id_elemento: true,
+        },
+    });
 
-        // Traer registros relacionados a detalle_tarea
-        const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
-        const registros = await this.prisma.registro.findMany({
+    const detalleIds = detalles.map(d => d.id_detalle);
+
+    // 4) Si no hay detalles, devolvemos estructura vacía sin romper
+    if (detalleIds.length === 0) {
+        return {
+            ...planilla,
+            elemento: elementos.map(elem => ({
+                ...elem,
+                detalle: []
+            })),
+        };
+    }
+
+    // 5) detalle_tarea filtrado por idTarea
+    const detalleTareas = await this.prisma.detalle_tarea.findMany({
+        where: { id_detalle: { in: detalleIds }, id_tarea: idTarea },
+        select: {
+            id_detalle_tarea: true,
+            cantidad_acumulada: true,
+            completado: true,
+            id_detalle: true,
+            tarea: { select: { nombre_tarea: true } },
+        },
+    });
+
+    const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
+
+    // 6) registros asociados
+    const registros = detalleTareaIds.length > 0
+        ? await this.prisma.registro.findMany({
             where: { id_detalle_tarea: { in: detalleTareaIds } },
             select: {
                 id_registro: true,
@@ -96,27 +117,28 @@ export class PlanillasService {
                 ayudante: { select: { nombre: true } },
                 id_detalle_tarea: true,
             },
-        });
+        })
+        : [];
 
-        // Reconstruir la estructura
-        return {
-            ...planilla,
-            elemento: elementos.map(elem => ({
-                ...elem,
-                detalle: detalles
-                    .filter(d => d.id_elemento === elem.id_elemento)
-                    .map(det => ({
-                        ...det,
-                        detalle_tarea: detalleTareas
-                            .filter(dt => dt.id_detalle === det.id_detalle)
-                            .map(dt => ({
-                                ...dt,
-                                registro: registros.filter(r => r.id_detalle_tarea === dt.id_detalle_tarea),
-                            })),
-                    })),
-            })),
-        };
-    }
+    // 7) Estructura final segura
+    return {
+        ...planilla,
+        elemento: elementos.map(elem => ({
+            ...elem,
+            detalle: detalles
+                .filter(d => d.id_elemento === elem.id_elemento)
+                .map(det => ({
+                    ...det,
+                    detalle_tarea: detalleTareas
+                        .filter(dt => dt.id_detalle === det.id_detalle)
+                        .map(dt => ({
+                            ...dt,
+                            registro: registros.filter(r => r.id_detalle_tarea === dt.id_detalle_tarea),
+                        })),
+                })),
+        })),
+    };
+}
 
     //Obtener una planilla completa con todos sus detalles y tareas
     async getPlanillaCompleta(nroPlanilla: string) {

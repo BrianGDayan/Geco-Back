@@ -9,7 +9,7 @@ datasource db {
 
 model detalle {
   id_detalle         Int             @id @default(autoincrement())
-  posicion           String          @db.VarChar(10)
+  posicion           String          @db.VarChar(50)
   tipo               Int
   medida_diametro    Int
   longitud_corte     Float           @db.Real
@@ -34,23 +34,23 @@ model diametro {
 model elemento {
   id_elemento     Int       @id @default(autoincrement())
   nombre_elemento String    @db.VarChar(150)
-  nro_planilla    String    @db.VarChar(50)
+  nro_planilla    String    @db.VarChar(80)
   progreso        Int       @default(0)
   detalle         detalle[]
   planilla        planilla  @relation(fields: [nro_planilla], references: [nro_planilla], onDelete: Cascade, onUpdate: NoAction, map: "nro_planilla")
 }
 
 model planilla {
-  nro_planilla                              String     @id @db.VarChar(30)
-  obra                                      String     @db.VarChar(30)
-  nro_plano                                 String     @db.VarChar(30)
-  sector                                    String     @db.VarChar(30)
+  nro_planilla                              String     @id @db.VarChar(80)
+  obra                                      String     @db.VarChar(80)
+  nro_plano                                 String     @db.VarChar(80)
+  sector                                    String     @db.VarChar(80)
   encargado_elaborar                        String     @db.VarChar(5)
   encargado_revisar                         String     @db.VarChar(5)
   encargado_aprobar                         String?    @db.VarChar(5)
   fecha                                     DateTime   @db.Date
   revision                                  Int        @default(0)
-  item                                      String     @db.VarChar(20)
+  item                                      String     @db.VarChar(50)
   progreso                                  Int        @default(0)
   id_usuario                                Int
   rendimiento_global_corte_ayudante         Float      @default(0) @db.Real

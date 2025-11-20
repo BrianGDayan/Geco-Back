@@ -8,8 +8,7 @@ export class TrabajadoresService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-   async findAllActivos(): Promise<Pick<trabajador, 'id_trabajador' | 'nombre'>[]> {
-    // Obtener todos los trabajadores activos ordenados de forma ascendente por nombre
+  async findAllActivos(): Promise<Pick<trabajador, 'id_trabajador' | 'nombre'>[]> {
     return this.prisma.trabajador.findMany({
       where: { activo: true },
       select: { id_trabajador: true, nombre: true },
@@ -18,71 +17,67 @@ export class TrabajadoresService {
   }
 
   async actualizarRendimientosSemanal() {
-    // Obtener todos los trabajadores activos
     const trabajadores = await this.prisma.trabajador.findMany({
       select: { id_trabajador: true },
       where: { activo: true },
     });
 
-    // Iterar sobre cada trabajador y calcular sus rendimientos
-    for (const trabajador of trabajadores) {
-      await this.calcularYActualizarRendimientos(trabajador.id_trabajador);
+    for (const trab of trabajadores) {
+      await this.calcularYActualizarRendimientos(trab.id_trabajador);
     }
   }
 
   private async calcularYActualizarRendimientos(idTrabajador: number) {
     try {
-      // Obtener los rendimientos del trabajador específico
-      const rendimientos = await this.prisma.$queryRaw`
+      const rendimientos = await this.prisma.$queryRaw<
+        { id_tarea: number; promedio: number }[]
+      >`
         SELECT 
           dt.id_tarea,
-          AVG(
-            CASE 
-              WHEN r.id_trabajador = ${idTrabajador} THEN r.rendimiento_trabajador
-              WHEN r.id_ayudante = ${idTrabajador} THEN r.rendimiento_ayudante
-            END
-          ) as promedio
-        FROM registro r
+          AVG(ro.rendimiento) AS promedio
+        FROM registro_operador ro
+        JOIN registro r ON r.id_registro = ro.id_registro
         JOIN detalle_tarea dt ON dt.id_detalle_tarea = r.id_detalle_tarea
-        WHERE (r.id_trabajador = ${idTrabajador} OR r.id_ayudante = ${idTrabajador})
+        WHERE ro.id_trabajador = ${idTrabajador}
+          AND ro.rendimiento > 0
         GROUP BY dt.id_tarea
-`;
-      
+      `;
+
       const updates = {
         rendimiento_corte: 0,
         rendimiento_doblado: 0,
         rendimiento_empaquetado: 0,
       };
-      
-      // Iterar sobre los rendimientos obtenidos y asignarlos a los campos correspondientes.
-      (rendimientos as any[]).forEach(({ id_tarea, promedio }) => {
+
+      rendimientos.forEach(({ id_tarea, promedio }) => {
+        const val = parseFloat(String(promedio)) || 0;
         switch (id_tarea) {
           case 1:
-            updates.rendimiento_corte = parseFloat(promedio) || 0;
+            updates.rendimiento_corte = val;
             break;
           case 2:
-            updates.rendimiento_doblado = parseFloat(promedio) || 0;
+            updates.rendimiento_doblado = val;
             break;
           case 3:
-            updates.rendimiento_empaquetado = parseFloat(promedio) || 0;
+            updates.rendimiento_empaquetado = val;
             break;
         }
       });
 
-      // Actualizar el trabajador con los nuevos rendimientos calculados.
       await this.prisma.trabajador.update({
         where: { id_trabajador: idTrabajador },
         data: updates,
       });
 
       this.logger.log(`Actualizado trabajador ID: ${idTrabajador}`);
-    } catch (error) {
-      this.logger.error(`Error actualizando trabajador ${idTrabajador}: ${error.message}`);
+    } catch (error: any) {
+      this.logger.error(
+        `Error actualizando trabajador ${idTrabajador}: ${error.message}`,
+      );
     }
   }
 
   async obtenerRendimientosPorTarea(idTarea: number) {
-    // Determinar el campo de rendimiento según el id de la tarea.
     let campoRendimiento: keyof trabajador;
     switch (idTarea) {
       case 1:
@@ -98,7 +93,6 @@ export class TrabajadoresService {
         throw new BadRequestException('Tarea inválida. Debe ser 1, 2 o 3.');
     }
 
-    // Crear un objeto select dinámico para incluir el campo de rendimiento determinado.
     const selectObj: any = {
       id_trabajador: true,
       nombre: true,
@@ -106,7 +100,6 @@ export class TrabajadoresService {
     };
     selectObj[campoRendimiento] = true;
 
-    // Consultar todos los trabajadores activos, retornando el campo de rendimiento específico.
     const trabajadores = await this.prisma.trabajador.findMany({
       where: { activo: true },
       select: selectObj,

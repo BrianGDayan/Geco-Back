@@ -57,6 +57,7 @@ model planilla {
   rendimiento_global_corte_trabajador       Float      @default(0) @db.Real
   rendimiento_global_doblado_ayudante       Float      @default(0) @db.Real
   rendimiento_global_doblado_trabajador     Float      @default(0) @db.Real
+  rendimiento_global_doblado_ayudante2      Float      @default(0) @db.Real
   rendimiento_global_empaquetado_ayudante   Float      @default(0) @db.Real
   rendimiento_global_empaquetado_trabajador Float      @default(0) @db.Real
   pesos_diametro                            Json       @default("[]")
@@ -72,26 +73,37 @@ model trabajador {
   rendimiento_doblado     Float      @default(0) @db.Real
   rendimiento_empaquetado Float      @default(0) @db.Real
   activo                  Boolean    @default(true)
-  registros_ayudante      registro[] @relation("Registros_ayudante")
-  registros_principales   registro[] @relation("Registros_principales")
+
+  registros_operador      registro_operador[]
 }
 
 model registro {
-  id_registro            Int           @id @default(autoincrement())
-  id_detalle_tarea       Int
-  fecha                  DateTime      @db.Date
-  cantidad               Int
-  horas_trabajador       Float         @db.Real
-  horas_ayudante         Float         @db.Real
-  rendimiento_trabajador Float         @db.Real
-  rendimiento_ayudante   Float         @db.Real
-  id_usuario             Int
-  id_ayudante            Int?
-  id_trabajador          Int
-  detalle_tarea          detalle_tarea @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle_tarea")
-  usuario                usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
-  ayudante               trabajador?   @relation("Registros_ayudante", fields: [id_ayudante], references: [id_trabajador])
-  trabajador             trabajador    @relation("Registros_principales", fields: [id_trabajador], references: [id_trabajador])
+  id_registro         Int             @id @default(autoincrement())
+  id_detalle_tarea    Int
+  fecha               DateTime        @db.Date
+  cantidad            Int
+  id_usuario          Int
+
+  detalle_tarea       detalle_tarea   @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle_tarea")
+  usuario             usuario         @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
+
+  operadores          registro_operador[]    // Nuevo sistema multi-operador
+}
+
+model registro_operador {
+  id_registro_operador Int        @id @default(autoincrement())
+  id_registro          Int
+  id_trabajador        Int
+
+  tiempo_horas         Float      @db.Real
+  cantidad_unidades    Int
+  rendimiento          Float      @db.Real
+
+  registro             registro   @relation(fields: [id_registro], references: [id_registro], onDelete: Cascade)
+  trabajador           trabajador @relation(fields: [id_trabajador], references: [id_trabajador])
+
+  @@index([id_registro])
+  @@index([id_trabajador])
 }
 
 model tarea {

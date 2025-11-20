@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
 @Injectable()
 export class UsuariosService {
@@ -34,22 +33,6 @@ export class UsuariosService {
     async crearUsuario(createUsuarioDto: CreateUsuarioDto) {
         return await this.prisma.usuario.create({
             data: createUsuarioDto,
-        });
-    }
-
-    async actualizarUsuario(idUsuario: number, updateUsuarioDto: UpdateUsuarioDto) {
-  
-        const usuarioExistente = await this.prisma.usuario.findUnique({
-        where: { id_usuario: idUsuario },
-        });
-
-        if (!usuarioExistente) {
-            throw new NotFoundException(`Usuario con id ${idUsuario} no encontrado`);
-        }
-
-        return await this.prisma.usuario.update({
-            where: { id_usuario: idUsuario },
-            data: updateUsuarioDto,
         });
     }
 }

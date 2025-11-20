@@ -1,4 +1,24 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsArray, ValidateNested, IsString, Min } from "class-validator";
+import { Type } from "class-transformer";
+
+class OperadorInputDto {
+  @IsInt()
+  @IsNotEmpty()
+  idTrabajador: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tiempoHoras?: number;
+
+  @IsOptional()
+  @IsString()
+  start?: string;
+
+  @IsOptional()
+  @IsString()
+  end?: string;
+}
 
 export class CreateRegistroDto {
   @IsInt()
@@ -10,26 +30,11 @@ export class CreateRegistroDto {
   idTarea: number;
 
   @IsInt()
-  @Min(0, { message: "La cantidad no puede ser negativa" })
-  @IsNotEmpty()
+  @Min(1, { message: "La cantidad debe ser mayor a 0" })
   cantidad: number;
 
-  @IsNumber()
-  @Min(0.01, { message: "Las horas deben ser mayores a 0" })
-  @IsNotEmpty()
-  horasTrabajador: number;
-
-  @IsNumber()
-  @Min(0.01, { message: "Las horas deben ser mayores a 0" })
-  @IsOptional()
-  horasAyudante?: number;
-
-  @IsString()
-  @IsNotEmpty()
-  nombreTrabajador: string;
-
-  @IsString()
-  @IsOptional()
-  @IsNotEmpty()
-  nombreAyudante?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OperadorInputDto)
+  operadores: OperadorInputDto[];
 }

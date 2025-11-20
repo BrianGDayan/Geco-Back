@@ -53,11 +53,30 @@ async function main() {
 
   for (const nombre of trabajadores) {
     await prisma.trabajador.upsert({
-      where: { nombre },    
+      where: { nombre },
       update: {},
       create: { nombre },
     });
   }
+
+  // 4) Usuarios (Admin y Encargado)
+  await prisma.usuario.upsert({
+    where: { id_usuario: 1 }, // cualquier ID fijo para upsert
+    update: {},
+    create: {
+      clave: "admin2025",
+      rol: "admin",
+    },
+  });
+
+  await prisma.usuario.upsert({
+    where: { id_usuario: 2 },
+    update: {},
+    create: {
+      clave: "geco2025",
+      rol: "encargado",
+    },
+  });
 
 }
 

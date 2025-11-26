@@ -1,7 +1,7 @@
 -- CreateTable
 CREATE TABLE "detalle" (
     "id_detalle" SERIAL NOT NULL,
-    "posicion" VARCHAR(10) NOT NULL,
+    "posicion" VARCHAR(50) NOT NULL,
     "tipo" INTEGER NOT NULL,
     "medida_diametro" INTEGER NOT NULL,
     "longitud_corte" REAL NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE "diametro" (
 CREATE TABLE "elemento" (
     "id_elemento" SERIAL NOT NULL,
     "nombre_elemento" VARCHAR(150) NOT NULL,
-    "nro_planilla" VARCHAR(50) NOT NULL,
+    "nro_planilla" VARCHAR(80) NOT NULL,
     "progreso" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "elemento_pkey" PRIMARY KEY ("id_elemento")
@@ -36,22 +36,23 @@ CREATE TABLE "elemento" (
 
 -- CreateTable
 CREATE TABLE "planilla" (
-    "nro_planilla" VARCHAR(30) NOT NULL,
-    "obra" VARCHAR(30) NOT NULL,
-    "nro_plano" VARCHAR(30) NOT NULL,
-    "sector" VARCHAR(30) NOT NULL,
+    "nro_planilla" VARCHAR(80) NOT NULL,
+    "obra" VARCHAR(80) NOT NULL,
+    "nro_plano" VARCHAR(80) NOT NULL,
+    "sector" VARCHAR(80) NOT NULL,
     "encargado_elaborar" VARCHAR(5) NOT NULL,
     "encargado_revisar" VARCHAR(5) NOT NULL,
     "encargado_aprobar" VARCHAR(5),
     "fecha" DATE NOT NULL,
     "revision" INTEGER NOT NULL DEFAULT 0,
-    "item" VARCHAR(20) NOT NULL,
+    "item" VARCHAR(50) NOT NULL,
     "progreso" INTEGER NOT NULL DEFAULT 0,
     "id_usuario" INTEGER NOT NULL,
     "rendimiento_global_corte_ayudante" REAL NOT NULL DEFAULT 0,
     "rendimiento_global_corte_trabajador" REAL NOT NULL DEFAULT 0,
     "rendimiento_global_doblado_ayudante" REAL NOT NULL DEFAULT 0,
     "rendimiento_global_doblado_trabajador" REAL NOT NULL DEFAULT 0,
+    "rendimiento_global_doblado_ayudante2" REAL NOT NULL DEFAULT 0,
     "rendimiento_global_empaquetado_ayudante" REAL NOT NULL DEFAULT 0,
     "rendimiento_global_empaquetado_trabajador" REAL NOT NULL DEFAULT 0,
     "pesos_diametro" JSONB NOT NULL DEFAULT '[]',
@@ -78,15 +79,21 @@ CREATE TABLE "registro" (
     "id_detalle_tarea" INTEGER NOT NULL,
     "fecha" DATE NOT NULL,
     "cantidad" INTEGER NOT NULL,
-    "horas_trabajador" REAL NOT NULL,
-    "horas_ayudante" REAL NOT NULL,
-    "rendimiento_trabajador" REAL NOT NULL,
-    "rendimiento_ayudante" REAL NOT NULL,
     "id_usuario" INTEGER NOT NULL,
-    "id_ayudante" INTEGER,
-    "id_trabajador" INTEGER NOT NULL,
 
     CONSTRAINT "registro_pkey" PRIMARY KEY ("id_registro")
+);
+
+-- CreateTable
+CREATE TABLE "registro_operador" (
+    "id_registro_operador" SERIAL NOT NULL,
+    "id_registro" INTEGER NOT NULL,
+    "id_trabajador" INTEGER NOT NULL,
+    "tiempo_horas" REAL NOT NULL,
+    "cantidad_unidades" INTEGER NOT NULL,
+    "rendimiento" REAL NOT NULL,
+
+    CONSTRAINT "registro_operador_pkey" PRIMARY KEY ("id_registro_operador")
 );
 
 -- CreateTable
@@ -121,6 +128,12 @@ CREATE TABLE "usuario" (
 CREATE UNIQUE INDEX "trabajador_nombre_key" ON "trabajador"("nombre");
 
 -- CreateIndex
+CREATE INDEX "registro_operador_id_registro_idx" ON "registro_operador"("id_registro");
+
+-- CreateIndex
+CREATE INDEX "registro_operador_id_trabajador_idx" ON "registro_operador"("id_trabajador");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "tarea_nombre_tarea_key" ON "tarea"("nombre_tarea");
 
 -- CreateIndex
@@ -145,10 +158,10 @@ ALTER TABLE "registro" ADD CONSTRAINT "id_detalle_tarea" FOREIGN KEY ("id_detall
 ALTER TABLE "registro" ADD CONSTRAINT "id_usuario" FOREIGN KEY ("id_usuario") REFERENCES "usuario"("id_usuario") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "registro" ADD CONSTRAINT "registro_id_ayudante_fkey" FOREIGN KEY ("id_ayudante") REFERENCES "trabajador"("id_trabajador") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "registro_operador" ADD CONSTRAINT "registro_operador_id_registro_fkey" FOREIGN KEY ("id_registro") REFERENCES "registro"("id_registro") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "registro" ADD CONSTRAINT "registro_id_trabajador_fkey" FOREIGN KEY ("id_trabajador") REFERENCES "trabajador"("id_trabajador") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "registro_operador" ADD CONSTRAINT "registro_operador_id_trabajador_fkey" FOREIGN KEY ("id_trabajador") REFERENCES "trabajador"("id_trabajador") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "detalle_tarea" ADD CONSTRAINT "detalle_tarea_id_tarea_fkey" FOREIGN KEY ("id_tarea") REFERENCES "tarea"("id_tarea") ON DELETE RESTRICT ON UPDATE CASCADE;

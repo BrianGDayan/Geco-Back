@@ -47,6 +47,7 @@ export class PlanillasService {
         id_elemento: true,
         nombre_elemento: true,
       },
+      orderBy: { id_elemento: 'asc' },
     });
 
     if (elementos.length === 0) {
@@ -73,6 +74,7 @@ export class PlanillasService {
         campos_modificados: true,
         id_elemento: true,
       },
+      orderBy: { id_detalle: 'asc' },
     });
 
     const detalleIds = detalles.map(d => d.id_detalle);
@@ -97,6 +99,7 @@ export class PlanillasService {
         id_detalle: true,
         tarea: { select: { nombre_tarea: true } },
       },
+      orderBy: { id_detalle_tarea: 'asc' },
     });
 
     const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
@@ -125,6 +128,7 @@ export class PlanillasService {
               },
             },
           },
+          orderBy: { id_registro: 'asc' },
         })
       : [];
 
@@ -184,6 +188,7 @@ export class PlanillasService {
         id_elemento: true,
         nombre_elemento: true,
       },
+      orderBy: { id_elemento: 'asc' },
     });
 
     const detalles = await this.prisma.detalle.findMany({
@@ -202,6 +207,7 @@ export class PlanillasService {
         campos_modificados: true,
         id_elemento: true,
       },
+      orderBy: { id_detalle: 'asc' },
     });
 
     const detalleTareas = await this.prisma.detalle_tarea.findMany({
@@ -213,6 +219,7 @@ export class PlanillasService {
         id_detalle: true,
         tarea: { select: { nombre_tarea: true } },
       },
+      orderBy: { id_detalle_tarea: 'asc' },
     });
 
     const detalleTareaIds = detalleTareas.map(dt => dt.id_detalle_tarea);
@@ -240,6 +247,7 @@ export class PlanillasService {
               },
             },
           },
+          orderBy: { id_registro: 'asc' },
         })
       : [];
 

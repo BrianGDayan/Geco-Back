@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRegistroDto } from './dto/create-registro.dto';
 import { ProgresoService } from '../progreso/progreso.service';
-import { CONFIG_TIPO } from '../common/tareas.config';
 
 @Injectable()
 export class RegistrosService {
@@ -30,10 +29,21 @@ export class RegistrosService {
     const { registroCreado } = await this.prisma.$transaction(async (prisma) => {
       const detalleRecord = await prisma.detalle.findUnique({
         where: { id_detalle: dto.idDetalle },
-        include: { elemento: { select: { nro_planilla: true } } },
+        include: {
+          elemento: { select: { nro_planilla: true } },
+          diametro: true,
+        },
       });
       if (!detalleRecord) {
         throw new NotFoundException(`Detalle con id ${dto.idDetalle} no encontrado.`);
+      }
+
+      const planilla = await prisma.planilla.findUnique({
+        where: { nro_planilla: detalleRecord.elemento.nro_planilla },
+        select: { peso_total: true },
+      });
+      if (!planilla || planilla.peso_total <= 0) {
+        throw new BadRequestException('La planilla no tiene peso_total válido.');
       }
 
       let detalleTarea = await prisma.detalle_tarea.findFirst({
@@ -75,6 +85,7 @@ export class RegistrosService {
       const operadoresNormalizados: {
         id_trabajador: number;
         tiempo_horas: number;
+        slot: number;
       }[] = [];
 
       for (const op of dto.operadores) {
@@ -91,6 +102,7 @@ export class RegistrosService {
         operadoresNormalizados.push({
           id_trabajador: op.idTrabajador,
           tiempo_horas,
+          slot: op.slot,
         });
       }
 
@@ -107,7 +119,7 @@ export class RegistrosService {
 
       const totalAsignado = cantidades.reduce((a, b) => a + b, 0);
       let resto = baseCantidad - totalAsignado;
-      if (resto > 0) {
+      if (resto > 0 && cantidades.length > 0) {
         cantidades[0] += resto;
       }
 
@@ -120,23 +132,31 @@ export class RegistrosService {
         },
       });
 
-      const diametroRecord = await prisma.diametro.findUnique({
-        where: { medida_diametro: detalleRecord.medida_diametro },
-      });
-      if (!diametroRecord) {
-        throw new NotFoundException(`Diametro ${detalleRecord.medida_diametro} no encontrado.`);
+      // -----------------------------
+      // Cálculo de ponderación por peso a nivel REGISTRO
+      // -----------------------------
+      const longitud = detalleRecord.longitud_corte;
+      const pesoPorMetro = detalleRecord.diametro.peso_por_metro;
+
+      // Peso de ESTE registro (cantidad del registro) en toneladas
+      const pesoRegistroTon =
+        (dto.cantidad * longitud * pesoPorMetro) / 1000;
+
+      const pesoTotalTon = planilla.peso_total;
+      if (pesoTotalTon <= 0) {
+        throw new BadRequestException('peso_total de la planilla inválido.');
       }
 
-      const factor = CONFIG_TIPO[detalleRecord.tipo]?.factorDoblado ?? 1;
-      const longitud = detalleRecord.longitud_corte;
-      const pesoPorMetro = diametroRecord.peso_por_metro;
+      const coeficientePonderado = pesoRegistroTon / pesoTotalTon;
 
       for (let i = 0; i < operadoresNormalizados.length; i++) {
         const oper = operadoresNormalizados[i];
         const cant = cantidades[i];
 
-        const pesoKg = cant * longitud * pesoPorMetro;
-        const rendimiento = pesoKg > 0 ? (oper.tiempo_horas / pesoKg) * factor : 0;
+        const pesoKg = cant * longitud * pesoPorMetro; // kg asignados a este operador
+        const rendimiento_base = pesoKg > 0 ? oper.tiempo_horas / pesoKg : 0; // h/kg
+
+        const rendimiento_final = rendimiento_base * coeficientePonderado;
 
         await prisma.registro_operador.create({
           data: {
@@ -144,7 +164,8 @@ export class RegistrosService {
             id_trabajador: oper.id_trabajador,
             tiempo_horas: oper.tiempo_horas,
             cantidad_unidades: cant,
-            rendimiento,
+            rendimiento: rendimiento_final,
+            slot: oper.slot,
           },
         });
       }

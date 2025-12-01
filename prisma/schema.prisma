@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -53,15 +53,19 @@ model planilla {
   item                                      String     @db.VarChar(50)
   progreso                                  Int        @default(0)
   id_usuario                                Int
-  rendimiento_global_corte_ayudante         Float      @default(0) @db.Real
-  rendimiento_global_corte_trabajador       Float      @default(0) @db.Real
-  rendimiento_global_doblado_ayudante       Float      @default(0) @db.Real
-  rendimiento_global_doblado_trabajador     Float      @default(0) @db.Real
-  rendimiento_global_doblado_ayudante2      Float      @default(0) @db.Real
-  rendimiento_global_empaquetado_ayudante   Float      @default(0) @db.Real
-  rendimiento_global_empaquetado_trabajador Float      @default(0) @db.Real
+
+  // Globales por tarea+slot
+  rendimiento_global_corte_ayudante         Float      @default(0) @db.Real   // Corte slot 2
+  rendimiento_global_corte_trabajador       Float      @default(0) @db.Real   // Corte slot 1
+  rendimiento_global_doblado_ayudante       Float      @default(0) @db.Real   // Doblado slot 2
+  rendimiento_global_doblado_trabajador     Float      @default(0) @db.Real   // Doblado slot 1
+  rendimiento_global_doblado_ayudante2      Float      @default(0) @db.Real   // Doblado slot 3
+  rendimiento_global_empaquetado_ayudante   Float      @default(0) @db.Real   // Empaque slot 2
+  rendimiento_global_empaquetado_trabajador Float      @default(0) @db.Real   // Empaque slot 1
+
   pesos_diametro                            Json       @default("[]")
   peso_total                                Float      @default(0) @db.Real
+
   elemento                                  elemento[]
   usuario                                   usuario    @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
 }
@@ -87,7 +91,7 @@ model registro {
   detalle_tarea       detalle_tarea   @relation(fields: [id_detalle_tarea], references: [id_detalle_tarea], onDelete: Cascade, onUpdate: NoAction, map: "id_detalle_tarea")
   usuario             usuario         @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction, map: "id_usuario")
 
-  operadores          registro_operador[]    // Nuevo sistema multi-operador
+  operadores          registro_operador[]
 }
 
 model registro_operador {
@@ -98,6 +102,7 @@ model registro_operador {
   tiempo_horas         Float      @db.Real
   cantidad_unidades    Int
   rendimiento          Float      @db.Real
+  slot                 Int        // 1,2,3 según rol funcional (Cort 1, Cort 2, Ayud 1, etc.)
 
   registro             registro   @relation(fields: [id_registro], references: [id_registro], onDelete: Cascade)
   trabajador           trabajador @relation(fields: [id_trabajador], references: [id_trabajador])

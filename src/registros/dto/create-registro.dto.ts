@@ -1,5 +1,14 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsArray, ValidateNested, IsString, Min } from "class-validator";
-import { Type } from "class-transformer";
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsString,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 class OperadorInputDto {
   @IsInt()
@@ -18,6 +27,10 @@ class OperadorInputDto {
   @IsOptional()
   @IsString()
   end?: string;
+
+  @IsInt()
+  @Min(1)
+  slot: number; // slot funcional (1,2,3…)
 }
 
 export class CreateRegistroDto {
@@ -30,7 +43,7 @@ export class CreateRegistroDto {
   idTarea: number;
 
   @IsInt()
-  @Min(1, { message: "La cantidad debe ser mayor a 0" })
+  @Min(1, { message: 'La cantidad debe ser mayor a 0' })
   cantidad: number;
 
   @IsArray()

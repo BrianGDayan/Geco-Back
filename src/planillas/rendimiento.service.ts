@@ -1,6 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { tareaAplicaATipo } from '../common/tareas.config';
 
 @Injectable()
 export class RendimientoService {
@@ -9,96 +8,107 @@ export class RendimientoService {
   constructor(private readonly prisma: PrismaService) {}
 
   public async actualizarRendimientosPlanilla(nroPlanilla: string) {
-    const planillaMeta = await this.prisma.planilla.findUnique({
+    const planilla = await this.prisma.planilla.findUnique({
       where: { nro_planilla: nroPlanilla },
-      select: { progreso: true, peso_total: true },
+      select: { nro_planilla: true },
     });
-    if (!planillaMeta) {
+
+    if (!planilla) {
       throw new NotFoundException(`Planilla ${nroPlanilla} no encontrada.`);
     }
-    if (planillaMeta.peso_total <= 0) {
-      return;
-    }
-    const pesoTotal = planillaMeta.peso_total;
 
-    const tareas = [
-      { tipo: 'corte', id: 1 },
-      { tipo: 'doblado', id: 2 },
-      { tipo: 'empaquetado', id: 3 },
-    ];
-
-    const detalles = await this.prisma.detalle.findMany({
-      where: { elemento: { nro_planilla: nroPlanilla } },
+    const operadores = await this.prisma.registro_operador.findMany({
+      where: {
+        rendimiento: { gt: 0 },
+        registro: {
+          detalle_tarea: {
+            detalle: {
+              elemento: { nro_planilla: nroPlanilla },
+            },
+          },
+        },
+      },
       select: {
-        id_detalle: true,
-        tipo: true,
-        longitud_corte: true,
-        cantidad_total: true,
-        diametro: { select: { peso_por_metro: true } },
+        rendimiento: true,
+        slot: true,
+        registro: {
+          select: {
+            detalle_tarea: {
+              select: { id_tarea: true },
+            },
+          },
+        },
       },
     });
 
-    const rendimientos: Record<string, number> = {
-      rendimiento_global_corte_trabajador: 0,
-      rendimiento_global_corte_ayudante: 0,
-      rendimiento_global_doblado_trabajador: 0,
-      rendimiento_global_doblado_ayudante: 0,
-      rendimiento_global_doblado_ayudante2: 0,
-      rendimiento_global_empaquetado_trabajador: 0,
-      rendimiento_global_empaquetado_ayudante: 0,
+    type Acc = { sum: number; count: number };
+
+    const acc: Record<string, Acc> = {
+      corte_trab: { sum: 0, count: 0 },
+      corte_ayud: { sum: 0, count: 0 },
+
+      dobl_trab: { sum: 0, count: 0 },
+      dobl_ayud: { sum: 0, count: 0 },
+      dobl_ayud2: { sum: 0, count: 0 },
+
+      emp_trab: { sum: 0, count: 0 },
+      emp_ayud: { sum: 0, count: 0 },
     };
 
-    for (const { tipo, id } of tareas) {
-      let sum = 0;
+    for (const op of operadores) {
+      const tareaId = op.registro.detalle_tarea.id_tarea;
+      const slot = op.slot;
+      const r = op.rendimiento;
 
-      for (const det of detalles) {
-        if (!tareaAplicaATipo(det.tipo, id)) continue;
-
-        const { longitud_corte, cantidad_total, diametro } = det;
-        const pesoDetalleTon =
-          (longitud_corte * cantidad_total * diametro.peso_por_metro) / 1000;
-
-        if (pesoDetalleTon <= 0) continue;
-
-        const coef = pesoDetalleTon / pesoTotal;
-
-        const avg = await this.prisma.registro_operador.aggregate({
-          where: {
-            registro: {
-              detalle_tarea: {
-                id_detalle: det.id_detalle,
-                id_tarea: id,
-              },
-            },
-            rendimiento: { gt: 0 },
-          },
-          _avg: { rendimiento: true },
-        });
-
-        const r = avg._avg.rendimiento ?? 0;
-        sum += r * coef;
-      }
-
-      switch (tipo) {
-        case 'corte':
-          rendimientos.rendimiento_global_corte_trabajador = sum;
-          rendimientos.rendimiento_global_corte_ayudante = 0;
+      switch (tareaId) {
+        case 1: // CORTE
+          if (slot === 1) {
+            acc.corte_trab.sum += r;
+            acc.corte_trab.count++;
+          } else if (slot === 2) {
+            acc.corte_ayud.sum += r;
+            acc.corte_ayud.count++;
+          }
           break;
-        case 'doblado':
-          rendimientos.rendimiento_global_doblado_trabajador = sum;
-          rendimientos.rendimiento_global_doblado_ayudante = 0;
-          rendimientos.rendimiento_global_doblado_ayudante2 = 0;
+        case 2: // DOBLADO
+          if (slot === 1) {
+            acc.dobl_trab.sum += r;
+            acc.dobl_trab.count++;
+          } else if (slot === 2) {
+            acc.dobl_ayud.sum += r;
+            acc.dobl_ayud.count++;
+          } else if (slot === 3) {
+            acc.dobl_ayud2.sum += r;
+            acc.dobl_ayud2.count++;
+          }
           break;
-        case 'empaquetado':
-          rendimientos.rendimiento_global_empaquetado_trabajador = sum;
-          rendimientos.rendimiento_global_empaquetado_ayudante = 0;
+        case 3: // EMPAQUETADO
+          if (slot === 1) {
+            acc.emp_trab.sum += r;
+            acc.emp_trab.count++;
+          } else if (slot === 2) {
+            acc.emp_ayud.sum += r;
+            acc.emp_ayud.count++;
+          }
           break;
       }
     }
 
+    const avg = (a: Acc) => (a.count > 0 ? a.sum / a.count : 0);
+
     await this.prisma.planilla.update({
       where: { nro_planilla: nroPlanilla },
-      data: rendimientos,
+      data: {
+        rendimiento_global_corte_trabajador: avg(acc.corte_trab),
+        rendimiento_global_corte_ayudante: avg(acc.corte_ayud),
+
+        rendimiento_global_doblado_trabajador: avg(acc.dobl_trab),
+        rendimiento_global_doblado_ayudante: avg(acc.dobl_ayud),
+        rendimiento_global_doblado_ayudante2: avg(acc.dobl_ayud2),
+
+        rendimiento_global_empaquetado_trabajador: avg(acc.emp_trab),
+        rendimiento_global_empaquetado_ayudante: avg(acc.emp_ayud),
+      },
     });
   }
 
@@ -147,23 +157,23 @@ export class RendimientoService {
           rendimiento_global_empaquetado_ayudante: true,
         },
       });
-      const avg = grouped[0]?._avg || {};
+      const avgGroup = grouped[0]?._avg || {};
 
       return {
         rendimiento_global_corte_trabajador:
-          avg.rendimiento_global_corte_trabajador ?? 0,
+          avgGroup.rendimiento_global_corte_trabajador ?? 0,
         rendimiento_global_doblado_trabajador:
-          avg.rendimiento_global_doblado_trabajador ?? 0,
+          avgGroup.rendimiento_global_doblado_trabajador ?? 0,
         rendimiento_global_empaquetado_trabajador:
-          avg.rendimiento_global_empaquetado_trabajador ?? 0,
+          avgGroup.rendimiento_global_empaquetado_trabajador ?? 0,
         rendimiento_global_corte_ayudante:
-          avg.rendimiento_global_corte_ayudante ?? 0,
+          avgGroup.rendimiento_global_corte_ayudante ?? 0,
         rendimiento_global_doblado_ayudante:
-          avg.rendimiento_global_doblado_ayudante ?? 0,
+          avgGroup.rendimiento_global_doblado_ayudante ?? 0,
         rendimiento_global_doblado_ayudante2:
-          avg.rendimiento_global_doblado_ayudante2 ?? 0,
+          avgGroup.rendimiento_global_doblado_ayudante2 ?? 0,
         rendimiento_global_empaquetado_ayudante:
-          avg.rendimiento_global_empaquetado_ayudante ?? 0,
+          avgGroup.rendimiento_global_empaquetado_ayudante ?? 0,
       };
     }
   }

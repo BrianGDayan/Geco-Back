@@ -119,6 +119,7 @@ export class PlanillasService {
                 tiempo_horas: true,
                 cantidad_unidades: true,
                 rendimiento: true,
+                slot: true,
                 trabajador: {
                   select: {
                     id_trabajador: true,
@@ -238,6 +239,7 @@ export class PlanillasService {
                 tiempo_horas: true,
                 cantidad_unidades: true,
                 rendimiento: true,
+                slot: true,
                 trabajador: {
                   select: {
                     id_trabajador: true,
